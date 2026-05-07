@@ -17,9 +17,10 @@ pip install unsloth "trl<0.12.0" peft accelerate bitsandbytes
 pip install transformers datasets sentencepiece protobuf
 
 
-6. pip install unsloth_zoo
+5. install unsloth_zoo
+pip install unsloth_zoo
 
-7. Optional: WandB for tracking your poetry translation metrics
+6. Optional: WandB for tracking your poetry translation metrics
 pip install wandb
 
 # Run the qwen model tester
