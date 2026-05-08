@@ -27,5 +27,4 @@ pip install wandb
 python qwen_test.py
 
 # Dataset
-build_dataset.py is the python code used of combining datasets CCPM and PoetMT
-folder combined contains the combined dataset itself
+build_dataset.py is the python code used of combining datasets CCPM and PoetMT. The folder combined contains the combined dataset itself
