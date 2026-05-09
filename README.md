@@ -62,6 +62,33 @@ The comparison **isolates whether translation gains come from architecture choic
    3.6 Evaluation Metrics (BLEU, ROUGE, BERTScore)
 ```
 
+
+# How To Get Started
+Run these in your terminal to set up the environment
+1. Create the environment
+conda create --name qwen_poetry python=3.12 -y
+2. Activate it
+conda activate qwen_poetry
+
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
+
+3. Core fine-tuning libraries
+pip install unsloth "trl<0.12.0" peft accelerate bitsandbytes
+
+4. Transformers and data handling
+pip install transformers datasets sentencepiece protobuf
+
+
+5. install unsloth_zoo
+pip install unsloth_zoo
+
+6. Optional: WandB for tracking your poetry translation metrics
+pip install wandb
+
+# Run the qwen model tester
+python qwen_test.py
+
+
 ### 3.1 Problem Formulation
 
 Let a classical Chinese poem be a sequence of tokens:
