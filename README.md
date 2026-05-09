@@ -74,9 +74,9 @@ $$y = (y_1, y_2, \dots, y_n)$$
 
 The goal is to learn a conditional distribution $P_\theta(y \mid x)$ that maximizes translation quality across **adequacy, fluency, and poetic elegance** (criteria from Chen et al. 2025).
 
-Training minimizes the standard **negative log-likelihood (NLL)** loss over a parallel corpus $\mathcal{D} = \{(x^{(i)}, y^{(i)})\}$:
+Training minimizes the standard **negative log-likelihood (NLL)** loss over a parallel corpus
 
-$$\mathcal{L}(\theta) = -\sum_{i=1}^{|\mathcal{D}|} \sum_{t=1}^{n} \log P_\theta(y_t^{(i)} \mid y_{<t}^{(i)}, x^{(i)})$$
+$\mathcal{D} = \{(x^{(i)}, y^{(i)})\}$: $$\mathcal{L}(\theta) = -\sum_{i=1}^{|\mathcal{D}|} \sum_{t=1}^{n} \log P_\theta(y_t^{(i)} \mid y_{<t}^{(i)}, x^{(i)})$$
 
 ### 3.2 Parameter-Efficient Fine-Tuning via LoRA
 
@@ -112,9 +112,7 @@ QLoRA (Dettmers et al., 2023) adds **4-bit NormalFloat (NF4) quantization** on t
 
 $$W_0^{q} = \text{quantize}_{NF4}(W_0)$$
 
-stored at 4-bit precision, while LoRA adapters $A, B$ remain in full BFloat16. The forward pass dequantizes on-the-fly:
-
-$$h = \text{dequantize}(W_0^q) x + \frac{\alpha}{r} BAx$$
+stored at 4-bit precision, while LoRA adapters $A, B$ remain in full BFloat16. The forward pass dequantizes on-the-fly: $$h = \text{dequantize}(W_0^q) x + \frac{\alpha}{r} BAx$$
 
 This combines two savings: 4-bit quantization reduces base model VRAM by ~75%, and LoRA restricts gradient updates to low-rank matrices. A 1.5B model becomes feasible on a single 16GB consumer GPU.
 
@@ -124,9 +122,7 @@ This combines two savings: 4-bit quantization reduces base model VRAM by ~75%, a
 mT5-base is a **multilingual encoder-decoder transformer** pretrained on 101 languages with span-corruption.
 
 - **Encoder:** $H = \text{Encoder}(x)$, where $H \in \mathbb{R}^{m \times d}$
-- **Decoder:** autoregressively generates conditioning on both $H$ and previous tokens:
-
-$$P_\theta(y_t \mid y_{<t}, x) = \text{softmax}(W_o \cdot \text{Decoder}(y_{<t}, H))$$
+- **Decoder:** autoregressively generates conditioning on both $H$ and previous tokens: $$P_\theta(y_t \mid y_{<t}, x) = \text{softmax}(W_o \cdot \text{Decoder}(y_{<t}, H))$$
 
 #### LoRA on Encoder-Decoder Attention
 Adapters are applied to:
