@@ -38,7 +38,7 @@ def spinning_cursor():
 
 os.environ["HF_TOKEN"] = "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"
 
-model_name = "Qwen/Qwen2.5-14B-Instruct"
+model_name = "Qwen/Qwen2.5-1.5B-Instruct"
 
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
