@@ -135,6 +135,29 @@ Adapters are applied to:
 
 Cross-attention adaptation is critical for poetry: it governs how the model attends to specific Chinese source tokens when generating each English word — directly affecting poetic fidelity.
 
+#### E2 Implementation (`train_e2_mt5.py`)
+
+Input is prefixed with `"translate classical Chinese to English: "` followed by the full context block (title, poet, modern_zh, annotations, background) and the classical Chinese text. CCPM auxiliary samples are excluded — E2 trains on PoetMT translation pairs only (`data/poetmt/`).
+
+| Hyperparameter | E2 Value |
+|---|---|
+| LoRA rank $r$ | 16 |
+| LoRA $\alpha$ | 32 |
+| LoRA target modules | `q`, `v` |
+| LoRA dropout | 0.05 |
+| Precision | bf16 (Ampere GPU), fp32 fallback |
+| Learning rate | 3e-4 |
+| Batch size (per device) | 8 |
+| Gradient accumulation | 4 steps (effective batch 32) |
+| Warmup steps | 100 |
+| Optimizer | AdamW |
+| Weight decay | 0.01 |
+| Max source length | 512 tokens |
+| Max target length | 256 tokens |
+| Beam size (eval) | 4 |
+| Early stopping patience | 2 epochs |
+| Checkpoint metric | BLEU |
+
 ### 3.5 Training Procedure
 
 ```

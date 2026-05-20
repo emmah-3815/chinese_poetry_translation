@@ -83,10 +83,10 @@ while True:
     user_input = input("\nUser: ")
     if user_input.lower() in ["exit", "quit"]:
         break
-        
+
     # 1. Add user message to history
     messages.append({"role": "user", "content": user_input})
-    
+
     # 2. Prepare inputs
     text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     model_inputs = tokenizer([text], return_tensors="pt").to(model.device)
@@ -111,15 +111,13 @@ while True:
         spinner_thread.do_run = False
         spinner_thread.join()
     # generated_ids = model.generate(**model_inputs, max_new_tokens=512)
-    
+
     # 4. Decode just the new tokens
     new_tokens = [
         output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
     ]
     response = tokenizer.batch_decode(new_tokens, skip_special_tokens=True)[0]
-    
+
     # 5. Print and SAVE to history so the model remembers the context
     print(f"\nQwen: {response}")
     messages.append({"role": "assistant", "content": response})
-
-

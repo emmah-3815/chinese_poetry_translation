@@ -62,7 +62,19 @@ Each PoetMT training sample's input prompt includes (when available):
 
 This is a meaningful contrast to standard MT setups — the model is told *who, when, what it means, and what to watch for* before producing the translation.
 
-### Final Dataset Statistics (latest run)
+### E2 Dataset (PoetMT-only, no CCPM)
+
+For E2 (mT5-base + LoRA), CCPM is excluded — the model trains on PoetMT translation pairs only. This keeps the task focused and allows a clean comparison against E1 on identical test data. Built with `build_dataset_poetmt.py` into `data/poetmt/`.
+
+| Split | Samples | Notes |
+|---|---|---|
+| Train | ~578 | PoetMT translation pairs, full context included |
+| Valid | ~72 | PoetMT translation pairs, full context included |
+| Test | ~73 | Carved deterministically from tail before shuffle |
+
+All samples include available context (title, poet, modern_zh, annotations, background) prepended to the classical Chinese source. The encoder input is further prefixed with `"translate classical Chinese to English: "`.
+
+### E1+E2 Combined Dataset Statistics (latest run)
 
 | Split | Total | Translation | Auxiliary (CCPM) |
 |---|---|---|---|

@@ -1,0 +1,25 @@
+# datasets (large raw + processed files)
+data/
+
+# trained model weights & checkpoints
+models/
+
+# Claude Code settings
+.claude/
+
+# pip / build artifacts
+=*
+unsloth_compiled_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# HuggingFace cache
+.cache/
+
+# Jupyter
+.ipynb_checkpoints/
