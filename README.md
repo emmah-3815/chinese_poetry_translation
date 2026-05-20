@@ -62,6 +62,33 @@ The comparison **isolates whether translation gains come from architecture choic
    3.6 Evaluation Metrics (BLEU, ROUGE, BERTScore)
 ```
 
+
+# How To Get Started
+Run these in your terminal to set up the environment
+1. Create the environment
+conda create --name qwen_poetry python=3.12 -y
+2. Activate it
+conda activate qwen_poetry
+
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
+
+3. Core fine-tuning libraries
+pip install unsloth "trl<0.12.0" peft accelerate bitsandbytes
+
+4. Transformers and data handling
+pip install transformers datasets sentencepiece protobuf
+
+
+5. install unsloth_zoo
+pip install unsloth_zoo
+
+6. Optional: WandB for tracking your poetry translation metrics
+pip install wandb
+
+#### Run the qwen model tester
+python qwen_test.py
+
+
 ### 3.1 Problem Formulation
 
 Let a classical Chinese poem be a sequence of tokens:
@@ -74,9 +101,9 @@ $$y = (y_1, y_2, \dots, y_n)$$
 
 The goal is to learn a conditional distribution $P_\theta(y \mid x)$ that maximizes translation quality across **adequacy, fluency, and poetic elegance** (criteria from Chen et al. 2025).
 
-Training minimizes the standard **negative log-likelihood (NLL)** loss over a parallel corpus $\mathcal{D} = \{(x^{(i)}, y^{(i)})\}$:
+Training minimizes the standard **negative log-likelihood (NLL)** loss over a parallel corpus
 
-$$\mathcal{L}(\theta) = -\sum_{i=1}^{|\mathcal{D}|} \sum_{t=1}^{n} \log P_\theta(y_t^{(i)} \mid y_{<t}^{(i)}, x^{(i)})$$
+$\mathcal{D} = \{(x^{(i)}, y^{(i)})\}$: $$\mathcal{L}(\theta) = -\sum_{i=1}^{|\mathcal{D}|} \sum_{t=1}^{n} \log P_\theta(y_t^{(i)} \mid y_{<t}^{(i)}, x^{(i)})$$
 
 ### 3.2 Parameter-Efficient Fine-Tuning via LoRA
 
@@ -112,9 +139,7 @@ QLoRA (Dettmers et al., 2023) adds **4-bit NormalFloat (NF4) quantization** on t
 
 $$W_0^{q} = \text{quantize}_{NF4}(W_0)$$
 
-stored at 4-bit precision, while LoRA adapters $A, B$ remain in full BFloat16. The forward pass dequantizes on-the-fly:
-
-$$h = \text{dequantize}(W_0^q) x + \frac{\alpha}{r} BAx$$
+stored at 4-bit precision, while LoRA adapters $A, B$ remain in full BFloat16. The forward pass dequantizes on-the-fly: $$h = \text{dequantize}(W_0^q) x + \frac{\alpha}{r} BAx$$
 
 This combines two savings: 4-bit quantization reduces base model VRAM by ~75%, and LoRA restricts gradient updates to low-rank matrices. A 1.5B model becomes feasible on a single 16GB consumer GPU.
 
@@ -124,9 +149,7 @@ This combines two savings: 4-bit quantization reduces base model VRAM by ~75%, a
 mT5-base is a **multilingual encoder-decoder transformer** pretrained on 101 languages with span-corruption.
 
 - **Encoder:** $H = \text{Encoder}(x)$, where $H \in \mathbb{R}^{m \times d}$
-- **Decoder:** autoregressively generates conditioning on both $H$ and previous tokens:
-
-$$P_\theta(y_t \mid y_{<t}, x) = \text{softmax}(W_o \cdot \text{Decoder}(y_{<t}, H))$$
+- **Decoder:** autoregressively generates conditioning on both $H$ and previous tokens: $$P_\theta(y_t \mid y_{<t}, x) = \text{softmax}(W_o \cdot \text{Decoder}(y_{<t}, H))$$
 
 #### LoRA on Encoder-Decoder Attention
 Adapters are applied to:
