@@ -387,8 +387,8 @@ def main():
     parser.add_argument("--output_dir", default="./qwen_poetry_lora")
     parser.add_argument("--model_name", default="Qwen/Qwen2.5-1.5B-Instruct")
     parser.add_argument("--epochs",     type=int,   default=3)
-    parser.add_argument("--batch_size", type=int,   default=2)
-    parser.add_argument("--grad_accum", type=int,   default=8)
+    parser.add_argument("--batch_size", type=int,   default=1)
+    parser.add_argument("--grad_accum", type=int,   default=16)
     parser.add_argument("--lr",         type=float, default=2e-4)
     parser.add_argument("--max_length", type=int,   default=768)
     parser.add_argument("--hf_token",   default=os.environ.get("HF_TOKEN"))
@@ -459,6 +459,7 @@ def main():
         seed=args.seed,
         dataloader_num_workers=0,
         remove_unused_columns=False,
+        gradient_checkpointing=True
     )
 
     trainer = Trainer(

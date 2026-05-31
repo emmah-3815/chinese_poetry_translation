@@ -1,0 +1,23 @@
+{
+  "automatic": [
+    {
+      "exp_id": "E1_05b_lora",
+      "bleu4": 1.6477,
+      "bp": 1.0,
+      "brevity": 1.078,
+      "rougeL_f": 0.1788,
+      "rougeL_p": 0.1746,
+      "rougeL_r": 0.1887,
+      "bertscore_f": 0.8552,
+      "bertscore_p": 0.857,
+      "bertscore_r": 0.854
+    }
+  ],
+  "inference_perf": {
+    "inference_total_s": 107.954,
+    "inference_per_poem_s": 1.384,
+    "inference_per_poem_ms": 1384.02,
+    "peak_vram_gb": 0.9,
+    "n_poems": 78
+  }
+}

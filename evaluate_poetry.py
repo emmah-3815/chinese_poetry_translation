@@ -9,16 +9,30 @@ Human evaluation   : Adequacy / Fluency / Poeticness on a 1–5 Likert scale
 
 Experiments supported
 ─────────────────────
-  E0  Qwen2.5-1.5B-Instruct           (untuned base model)
-  E1  Qwen2.5-1.5B-Instruct + QLoRA   (decoder-only baseline)
-  E2  mT5-base + QLoRA                (encoder-decoder baseline)
-  E3  Qwen2.5-14B-Instruct + QLoRA   (scale reference — reported separately)
-  E4  Best of E1/E2 with CCPM aux loss
+  E0           Qwen2.5-1.5B base (no adapter)
+  E0_05b       Qwen2.5-0.5B base (no adapter)
+  E1           Qwen2.5-1.5B + QLoRA
+  E1_lora      Qwen2.5-1.5B + LoRA (full precision)
+  E1_05b       Qwen2.5-0.5B + QLoRA
+  E1_05b_lora  Qwen2.5-0.5B + LoRA (full precision)
+  E2           mT5-base + QLoRA
+  E3           Qwen2.5-14B + QLoRA (scale reference)
+  E4           Best E1/E2 + CCPM aux loss
 
 Usage
 ─────
   pip install transformers peft bitsandbytes sacrebleu rouge-score bert-score
 
+  # Baselines (no adapter needed)
+    python evaluate_poetry.py --test_file ./results/test.jsonl --exp_id E0              # Qwen 1.5B base
+    python evaluate_poetry.py --test_file ./results/test.jsonl --exp_id E0_05b          # Qwen 0.5B base
+
+  # Fine-tuned variants
+    python evaluate_poetry.py --test_file ./results/test.jsonl --exp_id E1     --adapter ./qwen15b_qlora    # 1.5B QLoRA
+    python evaluate_poetry.py --test_file ./results/test.jsonl --exp_id E1_lora     --adapter ./qwen15b_lora     # 1.5B LoRA
+    python evaluate_poetry.py --test_file ./results/test.jsonl --exp_id E1_05b      --adapter ./qwen05b_qlora    # 0.5B QLoRA
+    python evaluate_poetry.py --test_file ./results/test.jsonl --exp_id E1_05b_lora --adapter ./qwen05b_lora     # 0.5B LoRA
+  
   # Evaluate a single fine-tuned model
   python evaluate_poetry.py \\
       --test_file  ./qwen_poetry_lora/test.jsonl \\
@@ -290,13 +304,28 @@ def compute_rouge(predictions: list[str], references: list[str]) -> dict:
 
 def compute_bertscore(predictions: list[str],
                       references:  list[str]) -> dict:
-    """BERTScore using roberta-large (standard, stable English MT model)."""
+    """
+    BERTScore using roberta-large (layer 17), the standard model for English
+    MT evaluation.
+
+    Two known issues with roberta-large and bert_score, both fixed here:
+
+    1. UNEXPECTED key warnings (lm_head, pooler) — harmless. bert_score only
+       uses encoder layers for embeddings; extra heads are ignored.
+
+    2. OverflowError: int too big to convert — the roberta-large *fast*
+       tokenizer stores its max_length as a ~1e28 sentinel value that
+       overflows the Rust tokenizer backend when bert_score tries to set
+       truncation. Fix: use_fast_tokenizer=False forces the slow (pure
+       Python) tokenizer which has no such sentinel.
+    """
     from bert_score import score as bscore
     P, R, F = bscore(
         predictions, references,
         lang="en",
         model_type="roberta-large",
-        num_layers=17,          # recommended layer for roberta-large
+        num_layers=17,
+        use_fast_tokenizer=False,   # avoids Rust overflow on max_length sentinel
         verbose=False,
         batch_size=8,
     )
@@ -479,8 +508,20 @@ def main():
     parser.add_argument("--test_file",        required=True,
                         help="Path to test.jsonl (saved by train_qwen_poetry.py)")
     parser.add_argument("--exp_id",           default="E1",
-                        choices=["E0", "E1", "E2", "E3", "E4"],
-                        help="Experiment ID (E0=Qwen1.5B base, E1=Qwen1.5B+QLoRA, E2=mT5, E3=Qwen14B, E4=ablation)")
+                        choices=["E0", "E0_05b", "E1", "E1_lora", "E1_05b", "E1_05b_lora",
+                                 "E2", "E3", "E4"],
+                        help=(
+                            "Experiment ID:\n"
+                            "  E0           Qwen2.5-1.5B base (no adapter)\n"
+                            "  E0_05b       Qwen2.5-0.5B base (no adapter)\n"
+                            "  E1           Qwen2.5-1.5B + QLoRA\n"
+                            "  E1_lora      Qwen2.5-1.5B + LoRA (full precision)\n"
+                            "  E1_05b       Qwen2.5-0.5B + QLoRA\n"
+                            "  E1_05b_lora  Qwen2.5-0.5B + LoRA (full precision)\n"
+                            "  E2           mT5-base + QLoRA\n"
+                            "  E3           Qwen2.5-14B + QLoRA (scale reference)\n"
+                            "  E4           Best E1/E2 + CCPM aux loss"
+                        ))
     parser.add_argument("--output_dir",       default="./results")
 
     # Model (skip if --human_only or --predictions_file given)
@@ -515,9 +556,40 @@ def main():
     out = Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
+    # ── Resolve model + adapter from exp_id ───────────────────────────────────
+    # Each entry: (model_name, use_adapter)
+    # use_adapter=True  → load --adapter path (error if not provided)
+    # use_adapter=False → base model, ignore --adapter
+    EXP_CONFIGS = {
+        "E0":          ("Qwen/Qwen2.5-1.5B-Instruct", False),
+        "E0_05b":      ("Qwen/Qwen2.5-0.5B-Instruct", False),
+        "E1":          ("Qwen/Qwen2.5-1.5B-Instruct", True),
+        "E1_lora":     ("Qwen/Qwen2.5-1.5B-Instruct", True),
+        "E1_05b":      ("Qwen/Qwen2.5-0.5B-Instruct", True),
+        "E1_05b_lora": ("Qwen/Qwen2.5-0.5B-Instruct", True),
+        "E2":          ("google/mt5-base",              True),
+        "E3":          ("Qwen/Qwen2.5-14B-Instruct",   True),
+        "E4":          ("Qwen/Qwen2.5-1.5B-Instruct",  True),
+    }
+
+    cfg_model, cfg_use_adapter = EXP_CONFIGS[args.exp_id]
+
+    # --model_name overrides the default for the experiment if explicitly passed
+    resolved_model = args.model_name if args.model_name != "Qwen/Qwen2.5-1.5B-Instruct"                      else cfg_model
+
+    if cfg_use_adapter and not args.adapter and not args.predictions_file             and not skip_auto and not pred_path.exists():
+        print(c(f"  ✗ {args.exp_id} requires --adapter <path>", BLUSH))
+        sys.exit(1)
+
+    resolved_adapter = args.adapter if cfg_use_adapter else None
+    if not cfg_use_adapter and args.adapter:
+        print(c(f"  {args.exp_id} is a base model — ignoring --adapter.", SAND))
+
     # ── Load test set ──────────────────────────────────────────────────────────
-    print(c("\n·" * (WIDTH // 2), LAVENDER))
+    print(c("\n" + "·" * WIDTH, LAVENDER))
     print(c(f"  Poetry Evaluation  ·  {args.exp_id}", LAVENDER + BOLD))
+    print(c(f"  Model  : {resolved_model}", SAND))
+    print(c(f"  Adapter: {resolved_adapter or '(none — base model)'}", SAND))
     print(c("·" * WIDTH, LAVENDER))
 
     test_pairs = load_test_set(args.test_file)
@@ -541,11 +613,10 @@ def main():
 
     elif not skip_auto:
         print(c(f"\n[1/3] Generating predictions …", LAVENDER + BOLD))
-        # E0: base model with no adapter — forces adapter=None regardless of --adapter flag
-        adapter = None if args.exp_id == "E0" else args.adapter
-        if args.exp_id == "E0" and args.adapter:
-            print(c("  E0 is the base model — ignoring --adapter flag.", SAND))
-        model, tokenizer = load_model(args.model_name, adapter, args.hf_token)
+        if cfg_use_adapter and not resolved_adapter:
+            print(c(f"  ✗ {args.exp_id} requires --adapter <path>", BLUSH))
+            sys.exit(1)
+        model, tokenizer = load_model(resolved_model, resolved_adapter, args.hf_token)
         predictions, infer_perf = generate_predictions(
             test_pairs, model, tokenizer, args.max_new_tokens, args.batch_size
         )

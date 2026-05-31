@@ -1,0 +1,23 @@
+{
+  "automatic": [
+    {
+      "exp_id": "E0_05b",
+      "bleu4": 0.7455,
+      "bp": 1.0,
+      "brevity": 2.3022,
+      "rougeL_f": 0.1326,
+      "rougeL_p": 0.1029,
+      "rougeL_r": 0.2238,
+      "bertscore_f": 0.8231,
+      "bertscore_p": 0.8139,
+      "bertscore_r": 0.8329
+    }
+  ],
+  "inference_perf": {
+    "inference_total_s": 118.908,
+    "inference_per_poem_s": 1.5245,
+    "inference_per_poem_ms": 1524.46,
+    "peak_vram_gb": 0.66,
+    "n_poems": 78
+  }
+}

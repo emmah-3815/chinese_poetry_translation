@@ -33,7 +33,7 @@ Usage
     python train_qwen_lora.py --data_dir ./PoetMT/all_poems --output_dir ./qwen_poetry_lora
 """
 '''
-TRAINING USES - Qwen2.5B 1.5B
+TRAINING USES
 lora with Qwen2.5-0.5B-Instruct
 
   Training time : 00h 01m 17.73s  (77.7s total)
