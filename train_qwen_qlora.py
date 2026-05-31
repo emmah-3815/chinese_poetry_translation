@@ -1,11 +1,10 @@
 """
-train_qwen_poetry_lora.py
+train_qwen_poetry.py
 ────────────────────
-LoRA fine-tuning of Qwen2.5-0.5B-Instruct on the PoetMT dataset
-(full-precision LoRA — no 4-bit quantization)
+QLoRA fine-tuning of Qwen2.5-1.5B-Instruct on the PoetMT dataset
 for classical Chinese → English poetry translation.
 
-Hardware target : consumer GPU ≤ 8 GB VRAM (0.5B fits in ~3 GB with LoRA)
+Hardware target : consumer GPU ≤ 8 GB VRAM
 LoRA config     : r=32, alpha=64, dropout=0.05  (matches paper §5.1)
 Adapter targets : q/k/v/o_proj + gate/up/down_proj  (all linear layers)
 
@@ -30,30 +29,30 @@ Usage
 -----
     pip install transformers peft bitsandbytes datasets accelerate
 
-    python train_qwen_lora.py --data_dir ./PoetMT/all_poems --output_dir ./qwen_poetry_lora
+    python train_qwen_qlora.py --data_dir ./PoetMT/all_poems --output_dir ./qwen_poetry_qlora
 """
+
 '''
-TRAINING USES - Qwen2.5B 1.5B
-lora with Qwen2.5-0.5B-Instruct
+TRAINING USE
+qlora with Qwen2.5-0.5B-Instruct
+  Training time : 00h 02m 45.76s  (165.8s total)
+  Per epoch     : 55.3s  (0.9 min)
+  Peak VRAM     : 7.43 GB
+  Perf log      : qwen_poetry_qlora_0_5/train_perf.json
 
-  Training time : 00h 01m 17.73s  (77.7s total)
-  Per epoch     : 25.9s  (0.4 min)
-  Peak VRAM     : 8.83 GB
-  Perf log      : qwen_poetry_lora_0_5/train_perf.json
-
-✓ LoRA adapter (full-precision) saved to ./qwen_poetry_lora_0_5
+✓ QLoRA adapter (full-precision) saved to ./qwen_poetry_qlora_0_5
   train.jsonl : 704 poems
   test.jsonl  : 78 poems  (stratified by dynasty)
   Run evaluate_poetry.py to compute BLEU-4 / ROUGE-L / BERTScore.
 
-lora with Qwen2.5-1.5B-Instruct
+qlora with Qwen2.5-1.5B-Instruct
 
-  Training time : 00h 02m 05.36s  (125.4s total)
-  Per epoch     : 41.8s  (0.7 min)
-  Peak VRAM     : 12.73 GB
-  Perf log      : qwen_poetry_lora_1_5/train_perf.json
+  Training time : 00h 03m 49.96s  (230.0s total)
+  Per epoch     : 76.7s  (1.3 min)
+  Peak VRAM     : 8.42 GB
+  Perf log      : qwen_poetry_qlora_1_5/train_perf.json
 
-✓ LoRA adapter (full-precision) saved to ./qwen_poetry_lora_1_5
+✓ QLoRA adapter (full-precision) saved to ./qwen_poetry_qlora_1_5
   train.jsonl : 704 poems
   test.jsonl  : 78 poems  (stratified by dynasty)
   Run evaluate_poetry.py to compute BLEU-4 / ROUGE-L / BERTScore.
@@ -67,10 +66,11 @@ from pathlib import Path
 
 import torch
 from datasets import Dataset
-from peft import LoraConfig, TaskType, get_peft_model
+from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
+    BitsAndBytesConfig,
     DataCollatorForSeq2Seq,
     Trainer,
     TrainingArguments,
@@ -340,14 +340,21 @@ TARGET_MODULES = [
 
 
 def load_model_and_tokenizer(model_name: str, hf_token: str | None):
-    # Plain LoRA — load in bfloat16, no quantization
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16,
+        bnb_4bit_use_double_quant=True,
+    )
+
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
-        torch_dtype=torch.bfloat16,
+        quantization_config=bnb_config,
         device_map="auto",
         token=hf_token,
         trust_remote_code=True,
     )
+    model = prepare_model_for_kbit_training(model)
 
     lora_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
@@ -377,8 +384,8 @@ def load_model_and_tokenizer(model_name: str, hf_token: str | None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir",   default="./PoetMT/all_poems")
-    parser.add_argument("--output_dir", default="./qwen05b_poetry_lora")
-    parser.add_argument("--model_name", default="Qwen/Qwen2.5-0.5B-Instruct")
+    parser.add_argument("--output_dir", default="./qwen_poetry_lora")
+    parser.add_argument("--model_name", default="Qwen/Qwen2.5-1.5B-Instruct")
     parser.add_argument("--epochs",     type=int,   default=3)
     parser.add_argument("--batch_size", type=int,   default=2)
     parser.add_argument("--grad_accum", type=int,   default=8)
@@ -442,7 +449,7 @@ def main():
         warmup_ratio=0.05,
         bf16=True,
         fp16=False,
-        optim="adamw_torch",
+        optim="paged_adamw_8bit",
         logging_steps=10,
         eval_strategy="epoch",
         save_strategy="epoch",
@@ -466,7 +473,6 @@ def main():
             pad_to_multiple_of=8,
         ),
     )
-
     import time
     # Reset VRAM peak counter right before training so we capture only training
     if torch.cuda.is_available():
@@ -507,10 +513,11 @@ def main():
     perf_path = out / "train_perf.json"
     _json.dump(perf, open(perf_path, "w"), indent=2)
     print(f"  Perf log      : {perf_path}")
-    print(f"\n✓ LoRA adapter (full-precision) saved to {args.output_dir}")
+    print(f"\n✓ QLoRA adapter (full-precision) saved to {args.output_dir}")
     print(f"  train.jsonl : {len(train_pairs)} poems")
     print(f"  test.jsonl  : {len(test_pairs)} poems  (stratified by dynasty)")
     print("  Run evaluate_poetry.py to compute BLEU-4 / ROUGE-L / BERTScore.")
+
 
 
 if __name__ == "__main__":

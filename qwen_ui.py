@@ -142,8 +142,17 @@ def load_model(model_name: str, adapter_path: str | None,
 # ── Inference ─────────────────────────────────────────────────────────────────
 def translate(model, tokenizer, poem: str,
               title: str = "", author: str = "",
-              max_new_tokens: int = 256) -> str:
-    """Run a single translation and return the decoded string."""
+              max_new_tokens: int = 256) -> tuple[str, dict]:
+    """
+    Run a single translation.
+    Returns (translation_text, perf) where perf contains:
+      - elapsed_s   : total wall time in seconds
+      - elapsed_ms  : total wall time in milliseconds
+      - tokens      : number of new tokens generated
+      - tok_per_s   : tokens per second
+      - peak_vram_gb: peak VRAM during generation (GPU only)
+    """
+    import time
 
     parts = []
     if title and author:
@@ -161,6 +170,11 @@ def translate(model, tokenizer, poem: str,
     )
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.synchronize()
+
+    t0 = time.perf_counter()
     with torch.no_grad():
         out = model.generate(
             **inputs,
@@ -171,8 +185,24 @@ def translate(model, tokenizer, poem: str,
             repetition_penalty=1.1,
             pad_token_id=tokenizer.eos_token_id,
         )
-    new_ids = out[0][inputs["input_ids"].shape[-1]:]
-    return tokenizer.decode(new_ids, skip_special_tokens=True).strip()
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+    elapsed = time.perf_counter() - t0
+
+    new_ids   = out[0][inputs["input_ids"].shape[-1]:]
+    n_tokens  = len(new_ids)
+    vram_gb   = (torch.cuda.max_memory_reserved() / 1024 ** 3
+                 if torch.cuda.is_available() else 0.0)
+
+    perf = {
+        "elapsed_s":    round(elapsed, 3),
+        "elapsed_ms":   round(elapsed * 1000, 1),
+        "tokens":       n_tokens,
+        "tok_per_s":    round(n_tokens / elapsed, 1) if elapsed > 0 else 0,
+        "peak_vram_gb": round(vram_gb, 2),
+    }
+    text = tokenizer.decode(new_ids, skip_special_tokens=True).strip()
+    return text, perf
 
 # ── Display helpers ───────────────────────────────────────────────────────────
 WIDTH = 72
@@ -215,6 +245,19 @@ def show_help():
   :help             Show this message
   :quit / :exit     Exit
 """, DIM))
+
+# ── Perf display ──────────────────────────────────────────────────────────────
+
+def _print_perf(perf: dict):
+    vram = f"  ·  VRAM {perf['peak_vram_gb']:.2f} GB" if perf["peak_vram_gb"] > 0 else ""
+    print(c(
+        f"  ⏱  {perf['elapsed_ms']:.0f} ms"
+        f"  ·  {perf['tokens']} tokens"
+        f"  ·  {perf['tok_per_s']:.1f} tok/s"
+        f"{vram}",
+        SAND
+    ))
+
 
 # ── Main REPL ─────────────────────────────────────────────────────────────────
 def main():
@@ -344,16 +387,18 @@ def main():
             # Base model
             spinner.label = "Base model translating"
             spinner.start()
-            base_out = translate(base_model, tokenizer, poem, title, author, max_new)
+            base_out, base_perf = translate(base_model, tokenizer, poem, title, author, max_new)
             spinner.stop()
             print_poem_block("Base Model", base_out, DIM)
+            _print_perf(base_perf)
 
             # Fine-tuned model
             spinner.label = "Fine-tuned model translating"
             spinner.start()
-            tuned_out = translate(tuned_model, tokenizer, poem, title, author, max_new)
+            tuned_out, tuned_perf = translate(tuned_model, tokenizer, poem, title, author, max_new)
             spinner.stop()
             print_poem_block("Fine-tuned (LoRA)", tuned_out, GREEN)
+            _print_perf(tuned_perf)
 
         else:
             active = tuned_model if has_adapter else base_model
@@ -361,9 +406,10 @@ def main():
             colour = GREEN if has_adapter else CYAN
 
             spinner.start()
-            out = translate(active, tokenizer, poem, title, author, max_new)
+            out, perf = translate(active, tokenizer, poem, title, author, max_new)
             spinner.stop()
             print_poem_block(label, out, colour)
+            _print_perf(perf)
 
         divider()
         print()
