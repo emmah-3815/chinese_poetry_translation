@@ -27,3 +27,6 @@ build/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# project-local Claude Code instructions (untracked per request)
+CLAUDE.md

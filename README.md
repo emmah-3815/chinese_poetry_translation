@@ -172,7 +172,7 @@ Cross-attention adaptation is critical for poetry: it governs how the model atte
 
 #### E2 Implementation (`train_e2_mt5.py`)
 
-Input is prefixed with `"translate classical Chinese to English: "` followed by the classical Chinese poem text (first, for truncation safety) then context (title, poet, modern_zh, annotations). CCPM auxiliary samples are excluded — E2 trains on PoetMT translation pairs only (`data/poetmt_compact/`).
+Input is prefixed with `"translate classical Chinese to English: "` followed by the classical Chinese poem text (first, for truncation safety) then context (title, poet, modern_zh, annotations). CCPM auxiliary samples are excluded — E2 trains on PoetMT translation pairs only (filters `task == "translation"` from `data/combined/`).
 
 #### Path 2b Implementation (`pipelines/opus_mt/train_opus_mt.py`)
 

@@ -1,15 +1,11 @@
 """
 E2: mT5-base + LoRA — classical Chinese poetry -> English translation.
-Data: data/poetmt/{train,valid,test}.jsonl  (build_dataset_poetmt.py output)
+Data: data/combined/{train,valid,test}.jsonl  (build_dataset.py output)
 
 Usage:
   python train_e2_mt5.py
-<<<<<<< Updated upstream
-  python train_e2_mt5.py --data_dir data/poetmt --output_dir models/e2-mt5 --epochs 5
-=======
-  python train_e2_mt5.py --data_dir data/poetmt_compact --output_dir models/e2-mt5-fp32-compact --epochs 5
-  python train_e2_mt5.py --precision bf16 --output_dir models/e2-mt5-bf16-compact
->>>>>>> Stashed changes
+  python train_e2_mt5.py --data_dir data/combined --output_dir models/e2-mt5-combined --epochs 5
+  python train_e2_mt5.py --precision bf16 --output_dir models/e2-mt5-bf16-combined
 """
 
 import json
@@ -33,7 +29,7 @@ import evaluate
 # CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
 
-MODEL_NAME  = "google/mt5-base"
+MODEL_NAME  = "google/mt5-base"   # overridden by --base_model arg
 MAX_SRC_LEN = 512
 MAX_TGT_LEN = 256
 TASK_PREFIX = "translate classical Chinese to English: "
@@ -56,6 +52,8 @@ def load_jsonl(path: Path) -> list[dict]:
         return [json.loads(l) for l in f if l.strip()]
 
 def messages_to_pair(record: dict) -> dict | None:
+    if record.get("task") not in (None, "translation"):
+        return None
     msgs     = record.get("messages", [])
     src_text = next((m["content"] for m in msgs if m["role"] == "user"),      None)
     tgt_text = next((m["content"] for m in msgs if m["role"] == "assistant"), None)
@@ -117,6 +115,7 @@ def make_compute_metrics(tokenizer):
 def main(args):
     data_dir   = Path(args.data_dir)
     output_dir = Path(args.output_dir)
+    base_model_name = args.base_model
     use_bf16 = args.precision == "bf16"
     use_fp16 = args.precision == "fp16"
 
@@ -129,10 +128,12 @@ def main(args):
     train_ds = load_split(data_dir / "train.jsonl")
     valid_ds = load_split(data_dir / "valid.jsonl")
     print(f"Train: {len(train_ds):,}  |  Valid: {len(valid_ds):,}")
+    if len(train_ds) == 0 or len(valid_ds) == 0:
+        raise ValueError("No translation examples loaded. Check --data_dir points to data/combined.")
 
-    tokenizer  = AutoTokenizer.from_pretrained(MODEL_NAME)
+    tokenizer  = AutoTokenizer.from_pretrained(base_model_name)
     base_model = AutoModelForSeq2SeqLM.from_pretrained(
-        MODEL_NAME,
+        base_model_name,
         dtype=torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
     )
     model = get_peft_model(base_model, LORA_CONFIG)
@@ -153,11 +154,7 @@ def main(args):
         warmup_steps=100,
         weight_decay=0.01,
         bf16=use_bf16,
-<<<<<<< Updated upstream
-        fp16=False,                       # mT5 has fp16 instability
-=======
         fp16=use_fp16,
->>>>>>> Stashed changes
         predict_with_generate=True,
         generation_max_length=MAX_TGT_LEN,
         generation_num_beams=4,
@@ -181,7 +178,7 @@ def main(args):
         processing_class=tokenizer,
         data_collator=collator,
         compute_metrics=make_compute_metrics(tokenizer),
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=2)],
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=args.early_stopping_patience)],
     )
 
     trainer.train()
@@ -194,14 +191,10 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-<<<<<<< Updated upstream
-    parser.add_argument("--data_dir",   default="data/poetmt")
-    parser.add_argument("--output_dir", default="models/e2-mt5")
-    parser.add_argument("--epochs",     type=int, default=5)
-    parser.add_argument("--batch_size", type=int, default=8)
-=======
-    parser.add_argument("--data_dir",   default="data/poetmt_compact")
-    parser.add_argument("--output_dir", default="models/e2-mt5-fp32-compact")
+    parser.add_argument("--base_model",  default=MODEL_NAME,
+                        help="HF model ID or local path to merged Stage-1 model")
+    parser.add_argument("--data_dir",   default="data/combined")
+    parser.add_argument("--output_dir", default="models/e2-mt5-combined")
     parser.add_argument("--epochs",                   type=int,  default=5)
     parser.add_argument("--batch_size",               type=int,  default=8)
     parser.add_argument("--resume_from_checkpoint",   default=None)
@@ -212,5 +205,4 @@ if __name__ == "__main__":
         default="fp32",
         help="Training precision. bf16 is faster on supported GPUs; fp32 is safest.",
     )
->>>>>>> Stashed changes
     main(parser.parse_args())

@@ -62,23 +62,29 @@ Each PoetMT training sample's input prompt includes (when available):
 
 This is a meaningful contrast to standard MT setups — the model is told *who, when, what it means, and what to watch for* before producing the translation.
 
-### E2 / opus-mt Dataset (PoetMT-only, no CCPM)
+### E2 / opus-mt Dataset
 
-For E2 (mT5-base + LoRA) and Path 2b (opus-mt + LoRA), CCPM is excluded. Built with `build_dataset_poetmt.py` into `data/poetmt_compact/`.
+For E2 (mT5-base + LoRA) and Path 2b (opus-mt + LoRA), CCPM is excluded at training time. Both scripts read from `data/combined/` and filter to `task == "translation"` records only (single builder: `build_dataset.py`).
 
-**Prompt format (corrected):** Classical Chinese poem appears FIRST in the user message so it is never truncated at MAX_SRC_LEN=512. Metadata (title, poet, modern_zh, annotations) follows. Background field is sanitized (no raw Python dicts). The mT5 encoder input is prefixed with `"translate classical Chinese to English: "`; opus-mt uses raw source text with no prefix.
+**Prompt format:** Classical Chinese poem appears FIRST in the user message so it is never truncated at MAX_SRC_LEN=512. Metadata (title, poet, modern_zh, annotations) follows. The mT5 encoder input is prefixed with `"translate classical Chinese to English: "`; opus-mt uses raw source text with no prefix.
 
-| Split | Samples | Notes |
+| Split | Translation samples | Source |
 |---|---|---|
-| Train | 581 | PoetMT translation pairs, full context |
-| Valid | 72 | PoetMT translation pairs, full context |
-| Test | 72 | Carved deterministically from tail before shuffle |
+| Train | 579 | `data/combined/train.jsonl` filtered to `task == "translation"` |
+| Valid | 72 | `data/combined/valid.jsonl` filtered to `task == "translation"` |
+| Test (local) | 72 | `data/combined/test.jsonl` (chat-format, Juqy's split) |
+| Test (canonical) | 78 | `data/combined/test_canonical.jsonl` (flat-format, Emma's set) |
 
-### Test Set Alignment Issue
+### Canonical Test Set
 
-Juqy's test set (72 poems, `data/poetmt_compact/`) and Emma's test set (78 poems, `results/test.jsonl` on `qwen` branch) **differ in size** despite using the same seed=42 + tail-first split logic. Root cause: Emma's combined `build_dataset.py` loads ~780 total PoetMT poems vs our ~725, producing a larger test slice.
+`data/combined/test_canonical.jsonl` — Emma's 78-poem flat-format set sourced from `origin/qwen:results/test.jsonl`. Fields: `chinese`, `english`, `title`, `author`, `dynasty`, `fanyi`, `shangxi`, `about`.
 
-**Canonical test set for paper Table 1:** Emma's 78-poem flat-format `results/test.jsonl`. All E1 variants are already evaluated on it. E2/opus-mt should be re-evaluated on this set. See `split_alignment_status.md` for details.
+**This is the paper Table 1 test set.** Use `--flat_test` in `eval_e2_mt5.py` to evaluate against it:
+```bash
+python eval_e2_mt5.py --adapter_dir models/<run>/lora_adapter --flat_test
+```
+
+See `split_alignment_status.md` for the historical root-cause analysis of the 72 vs 78 discrepancy.
 
 ### E1+E2 Combined Dataset Statistics (latest run)
 

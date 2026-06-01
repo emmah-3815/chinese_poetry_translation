@@ -1,0 +1,10 @@
+{
+  "bleu4": 0.0005,
+  "rouge1": 0.0042,
+  "rouge2": 0.0,
+  "rougeL": 0.0043,
+  "n_samples": 72,
+  "bertscore_p": 0.7305,
+  "bertscore_r": 0.7727,
+  "bertscore_f": 0.7508
+}
