@@ -1,5 +1,9 @@
 # datasets (large raw + processed files)
 data/
+# keep the canonical test set in the repo so Colab runs get the same eval split
+!data/
+!data/combined/
+!data/combined/test_canonical.jsonl
 
 # trained model weights & checkpoints
 models/
