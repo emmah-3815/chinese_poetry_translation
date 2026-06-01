@@ -18,6 +18,8 @@ Lightweight decoder-only baseline using prompted generation. QLoRA adds 4-bit NF
 ### Path 2: mT5-base + LoRA (encoder-decoder)
 Tests whether an encoder-decoder model is inherently better suited for poetry translation than a decoder-only model of similar scale. mT5 was pretrained on 101 languages and has explicit translation inductive bias.
 
+Standard LoRA is used here (not QLoRA). mT5-base at ~580M parameters occupies ~1.2GB in BF16 — well within GPU VRAM without quantization. QLoRA's 4-bit NF4 compression is designed for models too large to fit in VRAM (7B+); applying it to mT5-base would introduce quantization error with no memory benefit. At this scale, quantization error is proportionally larger than in large models because there are fewer parameters to absorb the approximation, so it would hurt translation quality. QLoRA is applied to Path 1 (Qwen2.5-1.5B) where it is necessary, and to Path 3 (Qwen2.5-14B) where it is essential.
+
 The comparison **isolates whether translation gains come from architecture choice vs. parameter-efficient adaptation** — a separation no prior work cleanly addresses for poetry.
 
 ## Novelty & Significance
@@ -145,6 +147,9 @@ This combines two savings: 4-bit quantization reduces base model VRAM by ~75%, a
 
 ### 3.4 Path 2: mT5-base + LoRA
 
+#### Why LoRA, not QLoRA
+QLoRA's value proposition is enabling training on a model that would not otherwise fit in GPU VRAM. mT5-base (~580M parameters, ~1.2GB in BF16) fits comfortably in under 5GB including optimizer state and activations — no quantization needed. Applying 4-bit NF4 quantization to a model this small would compress a weight space that is already constrained, introducing approximation error proportionally larger than in a 7B+ model where the same error averages out across far more parameters. The result is a quality regression with no hardware benefit. QLoRA is therefore reserved for paths where it is necessary: Qwen2.5-1.5B (borderline) and Qwen2.5-14B (required).
+
 #### Architecture
 mT5-base is a **multilingual encoder-decoder transformer** pretrained on 101 languages with span-corruption.
 
@@ -228,6 +233,7 @@ The hypothesis (Hu et al.) is that fine-tuning weight updates have a **low intri
 | Translation inductive bias | Low — uses prompted generation | High — built for seq2seq |
 | Cross-lingual pretraining | Primarily Chinese/English | 101 languages via mC4 |
 | Parameter count | ~1.5B | ~580M |
+| PEFT method | QLoRA (4-bit NF4, VRAM-constrained) | LoRA (BF16, fits in VRAM without quantization) |
 | LoRA targets | Self-attention only | Self + Cross attention |
 | Inference | Autoregressive from prompt | Encoder outputs reused |
 

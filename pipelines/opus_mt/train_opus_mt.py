@@ -1,15 +1,19 @@
 """
-E2: mT5-base + LoRA — classical Chinese poetry -> English translation.
-Data: data/poetmt/{train,valid,test}.jsonl  (build_dataset_poetmt.py output)
+Opus-MT + LoRA — classical Chinese poetry -> English translation.
+
+Uses Helsinki-NLP/opus-mt-zh-en (MarianMT, ~74M params) as the base model.
+It is already pre-trained on OPUS ZH->EN, so fine-tuning on poetry data
+starts from a working translator rather than mT5-base's zero translation ability.
+
+Data: data/poetmt_compact/{train,valid,test}.jsonl  (build_dataset_poetmt.py output)
 
 Usage:
-  python train_e2_mt5.py
-<<<<<<< Updated upstream
-  python train_e2_mt5.py --data_dir data/poetmt --output_dir models/e2-mt5 --epochs 5
-=======
-  python train_e2_mt5.py --data_dir data/poetmt_compact --output_dir models/e2-mt5-fp32-compact --epochs 5
-  python train_e2_mt5.py --precision bf16 --output_dir models/e2-mt5-bf16-compact
->>>>>>> Stashed changes
+  python pipelines/opus_mt/train_opus_mt.py
+  python pipelines/opus_mt/train_opus_mt.py --epochs 15 --output_dir models/opus-mt-poetry
+  python pipelines/opus_mt/train_opus_mt.py --precision bf16 --output_dir models/opus-mt-poetry-bf16
+
+Estimated training time (15 epochs, 581 train poems):
+  ~20-35 min on Colab free T4, ~50-70 min locally
 """
 
 import json
@@ -19,8 +23,8 @@ from pathlib import Path
 import torch
 from datasets import Dataset
 from transformers import (
-    AutoTokenizer,
-    AutoModelForSeq2SeqLM,
+    MarianTokenizer,
+    MarianMTModel,
     Seq2SeqTrainer,
     Seq2SeqTrainingArguments,
     DataCollatorForSeq2Seq,
@@ -33,22 +37,23 @@ import evaluate
 # CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
 
-MODEL_NAME  = "google/mt5-base"
+MODEL_NAME  = "Helsinki-NLP/opus-mt-zh-en"
 MAX_SRC_LEN = 512
 MAX_TGT_LEN = 256
-TASK_PREFIX = "translate classical Chinese to English: "
 
 LORA_CONFIG = LoraConfig(
     task_type=TaskType.SEQ_2_SEQ_LM,
     r=16,
     lora_alpha=32,
-    target_modules=["q", "v"],
+    target_modules=["q_proj", "v_proj"],   # encoder + decoder self-attn & cross-attn
     lora_dropout=0.05,
     bias="none",
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DATA ADAPTER  (chat-messages format -> seq2seq pairs)
+# Identical to train_e2_mt5.py — same data format.
+# No TASK_PREFIX: Marian already knows the task from pre-training.
 # ─────────────────────────────────────────────────────────────────────────────
 
 def load_jsonl(path: Path) -> list[dict]:
@@ -56,12 +61,14 @@ def load_jsonl(path: Path) -> list[dict]:
         return [json.loads(l) for l in f if l.strip()]
 
 def messages_to_pair(record: dict) -> dict | None:
+    if record.get("task") not in (None, "translation"):
+        return None
     msgs     = record.get("messages", [])
     src_text = next((m["content"] for m in msgs if m["role"] == "user"),      None)
     tgt_text = next((m["content"] for m in msgs if m["role"] == "assistant"), None)
     if not src_text or not tgt_text:
         return None
-    return {"source": TASK_PREFIX + src_text, "target": tgt_text}
+    return {"source": src_text, "target": tgt_text}
 
 def load_split(path: Path) -> Dataset:
     pairs = [messages_to_pair(r) for r in load_jsonl(path)]
@@ -98,13 +105,16 @@ def make_compute_metrics(tokenizer):
 
     def compute_metrics(eval_pred):
         preds, labels = eval_pred
+        preds = [
+            [tok if tok >= 0 else tokenizer.pad_token_id for tok in seq]
+            for seq in preds
+        ]
         labels = [
             [tok if tok != -100 else tokenizer.pad_token_id for tok in seq]
             for seq in labels
         ]
         decoded_preds  = [p.strip() for p in tokenizer.batch_decode(preds,  skip_special_tokens=True)]
         decoded_labels = [[l.strip()] for l in tokenizer.batch_decode(labels, skip_special_tokens=True)]
-
         return {
             "bleu": round(sacrebleu.compute(predictions=decoded_preds, references=decoded_labels)["score"], 2),
         }
@@ -122,19 +132,17 @@ def main(args):
 
     if use_bf16 and torch.cuda.is_available() and not torch.cuda.is_bf16_supported():
         raise ValueError(
-            "This GPU does not report bfloat16 support. Use --precision fp32, "
-            "or only try bf16 on Ampere/Ada/Hopper-class NVIDIA GPUs."
+            "This GPU does not support bfloat16. Use --precision fp32."
         )
 
     train_ds = load_split(data_dir / "train.jsonl")
     valid_ds = load_split(data_dir / "valid.jsonl")
     print(f"Train: {len(train_ds):,}  |  Valid: {len(valid_ds):,}")
+    if len(train_ds) == 0 or len(valid_ds) == 0:
+        raise ValueError("No translation examples loaded. Check --data_dir points to poetmt_compact.")
 
-    tokenizer  = AutoTokenizer.from_pretrained(MODEL_NAME)
-    base_model = AutoModelForSeq2SeqLM.from_pretrained(
-        MODEL_NAME,
-        dtype=torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
-    )
+    tokenizer  = MarianTokenizer.from_pretrained(MODEL_NAME)
+    base_model = MarianMTModel.from_pretrained(MODEL_NAME)
     model = get_peft_model(base_model, LORA_CONFIG)
     model.print_trainable_parameters()
 
@@ -142,7 +150,6 @@ def main(args):
     train_tok = train_ds.map(tok_fn, batched=True, remove_columns=["source", "target"])
     valid_tok = valid_ds.map(tok_fn, batched=True, remove_columns=["source", "target"])
 
-    use_bf16 = torch.cuda.is_bf16_supported()
     training_args = Seq2SeqTrainingArguments(
         output_dir=str(output_dir),
         num_train_epochs=args.epochs,
@@ -150,14 +157,10 @@ def main(args):
         per_device_eval_batch_size=args.batch_size,
         gradient_accumulation_steps=4,
         learning_rate=3e-4,
-        warmup_steps=100,
+        warmup_steps=50,
         weight_decay=0.01,
         bf16=use_bf16,
-<<<<<<< Updated upstream
-        fp16=False,                       # mT5 has fp16 instability
-=======
         fp16=use_fp16,
->>>>>>> Stashed changes
         predict_with_generate=True,
         generation_max_length=MAX_TGT_LEN,
         generation_num_beams=4,
@@ -166,7 +169,7 @@ def main(args):
         load_best_model_at_end=True,
         metric_for_best_model="bleu",
         greater_is_better=True,
-        logging_steps=50,
+        logging_steps=20,
         report_to="none",
     )
 
@@ -181,7 +184,7 @@ def main(args):
         processing_class=tokenizer,
         data_collator=collator,
         compute_metrics=make_compute_metrics(tokenizer),
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=2)],
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=args.early_stopping_patience)],
     )
 
     trainer.train()
@@ -194,23 +197,15 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-<<<<<<< Updated upstream
-    parser.add_argument("--data_dir",   default="data/poetmt")
-    parser.add_argument("--output_dir", default="models/e2-mt5")
-    parser.add_argument("--epochs",     type=int, default=5)
-    parser.add_argument("--batch_size", type=int, default=8)
-=======
-    parser.add_argument("--data_dir",   default="data/poetmt_compact")
-    parser.add_argument("--output_dir", default="models/e2-mt5-fp32-compact")
-    parser.add_argument("--epochs",                   type=int,  default=5)
-    parser.add_argument("--batch_size",               type=int,  default=8)
-    parser.add_argument("--resume_from_checkpoint",   default=None)
-    parser.add_argument("--early_stopping_patience",  type=int,  default=2)
+    parser.add_argument("--data_dir",                  default="data/poetmt_compact")
+    parser.add_argument("--output_dir",                default="models/opus-mt-poetry")
+    parser.add_argument("--epochs",                    type=int,  default=15)
+    parser.add_argument("--batch_size",                type=int,  default=8)
+    parser.add_argument("--early_stopping_patience",   type=int,  default=3)
     parser.add_argument(
         "--precision",
         choices=["fp32", "bf16", "fp16"],
         default="fp32",
-        help="Training precision. bf16 is faster on supported GPUs; fp32 is safest.",
+        help="Training precision. bf16 is faster on supported GPUs.",
     )
->>>>>>> Stashed changes
     main(parser.parse_args())
