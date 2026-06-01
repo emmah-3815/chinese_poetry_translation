@@ -130,10 +130,16 @@ def main(args):
     use_bf16 = args.precision == "bf16"
     use_fp16 = args.precision == "fp16"
 
-    if use_bf16 and torch.cuda.is_available() and not torch.cuda.is_bf16_supported():
-        raise ValueError(
-            "This GPU does not support bfloat16. Use --precision fp32."
-        )
+    # Auto-fallback: bf16 requires Ampere+ (A100/H100); free Colab T4 is Turing (fp16 only)
+    if use_bf16:
+        if not torch.cuda.is_available():
+            print("[WARN] No GPU found, falling back to fp32")
+            use_bf16 = False
+        elif not torch.cuda.is_bf16_supported():
+            print("[WARN] GPU does not support bf16 (need Ampere+), falling back to fp16")
+            use_bf16 = False
+            use_fp16 = True
+    print(f"Precision: {'bf16' if use_bf16 else 'fp16' if use_fp16 else 'fp32'}")
 
     train_ds = load_split(data_dir / "train.jsonl")
     valid_ds = load_split(data_dir / "valid.jsonl")
