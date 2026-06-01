@@ -62,17 +62,23 @@ Each PoetMT training sample's input prompt includes (when available):
 
 This is a meaningful contrast to standard MT setups — the model is told *who, when, what it means, and what to watch for* before producing the translation.
 
-### E2 Dataset (PoetMT-only, no CCPM)
+### E2 / opus-mt Dataset (PoetMT-only, no CCPM)
 
-For E2 (mT5-base + LoRA), CCPM is excluded — the model trains on PoetMT translation pairs only. This keeps the task focused and allows a clean comparison against E1 on identical test data. Built with `build_dataset_poetmt.py` into `data/poetmt/`.
+For E2 (mT5-base + LoRA) and Path 2b (opus-mt + LoRA), CCPM is excluded. Built with `build_dataset_poetmt.py` into `data/poetmt_compact/`.
+
+**Prompt format (corrected):** Classical Chinese poem appears FIRST in the user message so it is never truncated at MAX_SRC_LEN=512. Metadata (title, poet, modern_zh, annotations) follows. Background field is sanitized (no raw Python dicts). The mT5 encoder input is prefixed with `"translate classical Chinese to English: "`; opus-mt uses raw source text with no prefix.
 
 | Split | Samples | Notes |
 |---|---|---|
-| Train | ~578 | PoetMT translation pairs, full context included |
-| Valid | ~72 | PoetMT translation pairs, full context included |
-| Test | ~73 | Carved deterministically from tail before shuffle |
+| Train | 581 | PoetMT translation pairs, full context |
+| Valid | 72 | PoetMT translation pairs, full context |
+| Test | 72 | Carved deterministically from tail before shuffle |
 
-All samples include available context (title, poet, modern_zh, annotations, background) prepended to the classical Chinese source. The encoder input is further prefixed with `"translate classical Chinese to English: "`.
+### Test Set Alignment Issue
+
+Juqy's test set (72 poems, `data/poetmt_compact/`) and Emma's test set (78 poems, `results/test.jsonl` on `qwen` branch) **differ in size** despite using the same seed=42 + tail-first split logic. Root cause: Emma's combined `build_dataset.py` loads ~780 total PoetMT poems vs our ~725, producing a larger test slice.
+
+**Canonical test set for paper Table 1:** Emma's 78-poem flat-format `results/test.jsonl`. All E1 variants are already evaluated on it. E2/opus-mt should be re-evaluated on this set. See `split_alignment_status.md` for details.
 
 ### E1+E2 Combined Dataset Statistics (latest run)
 

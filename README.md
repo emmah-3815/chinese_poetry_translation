@@ -20,7 +20,14 @@ Tests whether an encoder-decoder model is inherently better suited for poetry tr
 
 Standard LoRA is used here (not QLoRA). mT5-base at ~580M parameters occupies ~1.2GB in BF16 — well within GPU VRAM without quantization. QLoRA's 4-bit NF4 compression is designed for models too large to fit in VRAM (7B+); applying it to mT5-base would introduce quantization error with no memory benefit. At this scale, quantization error is proportionally larger than in large models because there are fewer parameters to absorb the approximation, so it would hurt translation quality. QLoRA is applied to Path 1 (Qwen2.5-1.5B) where it is necessary, and to Path 3 (Qwen2.5-14B) where it is essential.
 
-The comparison **isolates whether translation gains come from architecture choice vs. parameter-efficient adaptation** — a separation no prior work cleanly addresses for poetry.
+**Note:** mT5-base was pre-trained only on unsupervised span-corruption (not translation), so its ZH→EN ability before fine-tuning is essentially zero. Fine-tuning on the small PoetMT corpus (581 poems) makes learning challenging.
+
+### Path 2b: opus-mt-zh-en + LoRA (pre-trained ZH→EN encoder-decoder)
+`Helsinki-NLP/opus-mt-zh-en` is a MarianMT model (~74M params) already trained on OPUS Chinese→English parallel data. It starts as a working translator — fine-tuning on poetry domain data specializes it for classical style rather than teaching translation from scratch.
+
+Early results (1-epoch smoke test): **48 sec/epoch, BLEU=0.43** vs mT5-base's 19.5 min/epoch, BLEU=0.01. Full 15-epoch run estimated at ~12 min locally, ~8 min on free Colab T4.
+
+The comparison **isolates whether translation gains come from architecture choice, pre-training domain, vs. parameter-efficient adaptation** — a separation no prior work cleanly addresses for poetry.
 
 ## Novelty & Significance
 
@@ -165,7 +172,11 @@ Cross-attention adaptation is critical for poetry: it governs how the model atte
 
 #### E2 Implementation (`train_e2_mt5.py`)
 
-Input is prefixed with `"translate classical Chinese to English: "` followed by the full context block (title, poet, modern_zh, annotations, background) and the classical Chinese text. CCPM auxiliary samples are excluded — E2 trains on PoetMT translation pairs only (`data/poetmt/`).
+Input is prefixed with `"translate classical Chinese to English: "` followed by the classical Chinese poem text (first, for truncation safety) then context (title, poet, modern_zh, annotations). CCPM auxiliary samples are excluded — E2 trains on PoetMT translation pairs only (`data/poetmt_compact/`).
+
+#### Path 2b Implementation (`pipelines/opus_mt/train_opus_mt.py`)
+
+No task prefix — MarianMT already knows the ZH→EN direction from OPUS pre-training. Same data format and LoRA configuration as E2, but targets `q_proj`/`v_proj` (MarianMT attention module names) and uses `Helsinki-NLP/opus-mt-zh-en` as the base model.
 
 | Hyperparameter | E2 Value |
 |---|---|
