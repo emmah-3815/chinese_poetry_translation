@@ -131,10 +131,12 @@ def compute_all_metrics(hypotheses: list[str], references: list[str]) -> dict:
     sacrebleu = evaluate.load("sacrebleu")
     rouge     = evaluate.load("rouge")
 
-    bleu_score = sacrebleu.compute(
+    bleu = sacrebleu.compute(
         predictions=hypotheses,
         references=[[r] for r in references],
-    )["score"]
+    )
+    # brevity = length ratio (sys_len / ref_len); <1 means output shorter than reference
+    brevity = bleu["sys_len"] / bleu["ref_len"] if bleu["ref_len"] else 0.0
 
     rouge_scores = rouge.compute(
         predictions=hypotheses,
@@ -142,7 +144,8 @@ def compute_all_metrics(hypotheses: list[str], references: list[str]) -> dict:
     )
 
     metrics = {
-        "bleu4":       round(bleu_score, 4),
+        "bleu4":       round(bleu["score"], 4),
+        "brevity":     round(brevity, 4),
         "rouge1":      round(rouge_scores["rouge1"], 4),
         "rouge2":      round(rouge_scores["rouge2"], 4),
         "rougeL":      round(rouge_scores["rougeL"], 4),
@@ -213,7 +216,13 @@ def main(args):
     print(f"  {len(records)} test samples")
 
     print("Generating translations ...")
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
     hypotheses = generate_translations(model, tokenizer, sources, batch_size=args.batch_size)
+    inf_peak_vram_gb = (
+        round(torch.cuda.max_memory_allocated() / 1e9, 2)
+        if torch.cuda.is_available() else None
+    )
 
     print("\n── Sample Translations ───────────────────────────")
     for i in range(min(5, len(records))):
@@ -230,6 +239,7 @@ def main(args):
 
     print("\nComputing metrics ...")
     metrics = compute_all_metrics(hypotheses, references)
+    metrics["inf_peak_vram_gb"] = inf_peak_vram_gb
 
     print("\n── Test Results ──────────────────────────────────")
     for k, v in metrics.items():
