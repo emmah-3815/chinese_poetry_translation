@@ -142,19 +142,19 @@ Metrics: BLEU-4 (sacrebleu), ROUGE-L, BERTScore F1, qualitative human review (ad
 
 **Cross-eval confirmed:** `eval_e2_mt5.py` and `evaluate_poetry.py` produce identical BLEU-4, ROUGE-L, and BERTScore on the same predictions (delta = 0 for all metrics). See `models/e2-mt5-fp32-v2/cross_eval/cross_eval_comparison.md`.
 
-**Test set alignment:** Juqy's local test set is 72 poems (`data/combined/test.jsonl`, chat-format). Emma's canonical test set is 78 poems (`data/combined/test_canonical.jsonl`, flat-format, sourced from `origin/qwen:results/test.jsonl`). **Canonical test set for paper Table 1 = `test_canonical.jsonl`.** Use `--flat_test` in `eval_e2_mt5.py` to evaluate against it.
+**Test set alignment (fixed 2026-05-31):** `data/combined/test.jsonl` (78 poems, chat-format) and `data/combined/test_canonical.jsonl` (78 poems, flat-format) now cover the **exact same poems**. Previously 55 canonical test poems leaked into train — fixed by canonical-aware split in `build_dataset.py`. **Canonical test set for paper Table 1 = `test_canonical.jsonl`.** Use `--flat_test` in `eval_e2_mt5.py` to evaluate against it.
 
 ## Current Results (as of May 2026)
 
 | Experiment | Model | Test BLEU-4 | ROUGE-L | BERTScore-F | Test Set |
 |---|---|:---:|:---:|:---:|---|
-| E0 (baseline) | Qwen2.5-1.5B (no adapter) | ~? | ~? | ~? | Emma's 78 |
+| E0-qwen (baseline) | Qwen2.5-1.5B (no adapter) | ~? | ~? | ~? | Emma's 78 |
+| **E0-opus (baseline)** | **opus-mt-zh-en (no adapter)** | **1.24** | **0.159** | **0.833** | **Emma's 78** |
 | E1 | Qwen2.5-1.5B + QLoRA | **2.86** | 0.2151 | 0.8643 | Emma's 78 |
-| E2 (old, buggy) | mT5-base + LoRA (old dataset) | 0.20 | 0.087 | 0.807 | Juqy's 72 |
-| E2 (pending) | mT5-base + LoRA (data/combined) | — | — | — | Emma's 78 |
-| opus-mt (pending) | opus-mt-zh-en + LoRA | — | — | — | — |
+| E2 (abandoned) | mT5-base + LoRA | — | — | — | — |
+| opus-mt + LoRA (pending) | opus-mt-zh-en + LoRA | — | — | — | Emma's 78 |
 
-Note: E2 "old, buggy" result is on the old `data/poetmt` dataset with prompt format bugs; effectively ~0 BLEU.
+Note: mT5-base (E2) was abandoned — mT5 has no ZH→EN pre-training, effectively BLEU≈0 baseline. opus-mt replaces it entirely.
 
 ## Paper
 
