@@ -217,7 +217,7 @@ def main(args):
     for i in range(min(5, len(records))):
         print(f"\n[{i+1}] Source:     {raw_srcs[i]}")
         print(f"    Reference:  {references[i]}")
-        print(f"    mT5 output: {hypotheses[i]}")
+        print(f"    Model out:  {hypotheses[i]}")
     print("\n─────────────────────────────────────────────────")
 
     preds_path = out_dir / "predictions.jsonl"
