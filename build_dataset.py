@@ -2,14 +2,14 @@
 Dataset Pipeline: PoetMT (CN→EN) + CCPM (auxiliary) for Path 1 (Qwen2.5-1.5B + QLoRA)
 
 Directory structure expected:
-  PoetMT/all_poems/
+  data/PoetMT-main/PoetMT-main/all_poems/
     tang.jsonl
     tang-background.jsonl
     song.jsonl
     song-background.jsonl
     yuan.jsonl
     yuan-background.jsonl
-  CCPM/
+  data/CCPM-master/
     train.jsonl
     valid.jsonl
     test_public.jsonl
@@ -63,9 +63,9 @@ POETMT_FIELD_MAP = {
     "title":        ["title", "poem_title", "name", "题目"],
     "author":       ["author", "poet", "author_name", "作者"],
     "dynasty":      ["dynasty", "era", "period", "朝代"],
-    "classical_zh": ["content", "lines", "chinese", "poem", "original",
+    "classical_zh": ["src", "content", "lines", "chinese", "poem", "original",
                      "classical", "text", "原文", "诗句"],
-    "english":      ["translation", "english", "en", "english_translation",
+    "english":      ["ref", "translation", "english", "en", "english_translation",
                      "reference", "human_translation"],
     "modern_zh":    ["modern_chinese", "modern", "modern_zh",
                      "vernacular", "paraphrase", "译文", "白话"],
@@ -73,9 +73,9 @@ POETMT_FIELD_MAP = {
 
 BACKGROUND_FIELD_MAP = {
     "join_key":    ["title", "poem_title", "id", "poem_id", "题目"],
-    "annotations": ["注释", "annotation", "notes", "commentary", "注解"],
-    "modern_zh":   ["modern_chinese", "modern", "vernacular", "白话", "译文"],
-    "background":  ["background", "author_intro", "history", "context", "背景"],
+    "annotations": ["note", "注释", "annotation", "notes", "commentary", "注解"],
+    "modern_zh":   ["fanyi", "modern_chinese", "modern", "vernacular", "白话", "译文"],
+    "background":  ["about", "background", "author_intro", "history", "context", "背景", "shangxi"],
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -174,14 +174,27 @@ def inspect_schema(records: list, name: str, n: int = 3) -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def resolve_field(record: dict, candidates: list) -> str | None:
+    nested_records = []
     for key in candidates:
         if key in record and record[key]:
-            return record[key]
+            value = record[key]
+            if isinstance(value, dict):
+                nested_records.append(value)
+                continue
+            return value
+    for nested in nested_records:
+        for key in candidates:
+            if key in nested and nested[key]:
+                return nested[key]
     return None
 
 def normalize_lines(value) -> str:
     if isinstance(value, list):
         return "\n".join(str(v).strip() for v in value if str(v).strip())
+    if isinstance(value, dict):
+        preferred = ("about", "fanyi", "shangxi", "content", "desc")
+        parts = [str(value[k]).strip() for k in preferred if value.get(k)]
+        return "\n".join(parts)
     return str(value).strip()
 
 def count_zh(text: str) -> int:
@@ -273,10 +286,10 @@ def extract_ccpm(splits: dict) -> list:
 # CLEANING
 # ══════════════════════════════════════════════════════════════════════════════
 
-def is_valid_poetmt(p: dict) -> tuple[bool, str]:
+def is_valid_poetmt(p: dict, force_keep: bool = False) -> tuple[bool, str]:
     c, e = p["classical_zh"], p["english"]
     if not (4 <= len(c) <= 300):                          return False, "classical_length"
-    if not (5 <= len(e) <= 800):                          return False, "english_length"
+    if not (5 <= len(e) <= 2000):                         return False, "english_length"
     if count_zh(c) / max(len(c), 1) < 0.3:               return False, "classical_not_zh"
     if count_en(e) / max(len(e), 1) < 0.3:               return False, "english_not_en"
     if c.strip() == e.strip():                            return False, "identical_src_tgt"
@@ -417,14 +430,28 @@ def split_poetmt(records: list,
     print(f"[Split]  train={len(train):,}  valid={len(valid):,}  test={len(test):,}")
     return train, valid, test
 
-def build_final_splits(poetmt_clean: list, ccpm_by_split: dict) -> dict:
+def build_final_splits(poetmt_clean: list, ccpm_by_split: dict,
+                       canonical_test_zh: set | None = None) -> dict:
     pm_formatted = [format_translation(p) for p in poetmt_clean]
     print(f"[Build]  PoetMT formatted: {len(pm_formatted):,} translation samples")
 
     cc_train = [format_auxiliary(p) for p in ccpm_by_split.get("train", [])]
     cc_valid = [format_auxiliary(p) for p in ccpm_by_split.get("valid", [])]
 
-    pm_train, pm_valid, pm_test = split_poetmt(pm_formatted)
+    if canonical_test_zh:
+        # Partition by canonical test membership — prevents train leakage
+        def _norm(s): return " ".join(s.split())
+        pm_test  = [r for r in pm_formatted if _norm(r["classical_zh"]) in canonical_test_zh]
+        pm_pool  = [r for r in pm_formatted if _norm(r["classical_zh"]) not in canonical_test_zh]
+        print(f"[Split]  Canonical-matched test={len(pm_test):,} | remaining pool={len(pm_pool):,}")
+        # Simple 90/10 train/valid on pool — no test bucket, all poems used
+        random.shuffle(pm_pool)
+        val_size = max(int(len(pm_pool) * 0.1), 20)
+        pm_valid = pm_pool[:val_size]
+        pm_train = pm_pool[val_size:]
+        print(f"[Split]  train={len(pm_train):,}  valid={len(pm_valid):,}  test={len(pm_test):,}")
+    else:
+        pm_train, pm_valid, pm_test = split_poetmt(pm_formatted)
 
     # Test set is translation-only (PoetMT) for clean BLEU/BERTScore evaluation
     train = pm_train + cc_train
@@ -495,7 +522,18 @@ def main(args: argparse.Namespace) -> None:
         if p["split"] in ccpm_by_split:
             ccpm_by_split[p["split"]].append(p)
 
-    final_splits = build_final_splits(poetmt_clean, ccpm_by_split)
+    # Load canonical test set to enforce consistent train/test split with Emma
+    canonical_test_zh: set | None = None
+    canonical_path = SCRIPT_DIR / args.output_dir / "test_canonical.jsonl"
+    if canonical_path.exists():
+        with open(canonical_path, encoding="utf-8") as f:
+            canonical_rows = [json.loads(l) for l in f if l.strip()]
+        canonical_test_zh = {" ".join(r["chinese"].split()) for r in canonical_rows}
+        print(f"[Split]  Loaded {len(canonical_test_zh):,} canonical test poems from {canonical_path}")
+    else:
+        print(f"[WARN]  Canonical test file not found at {canonical_path} — using random split")
+
+    final_splits = build_final_splits(poetmt_clean, ccpm_by_split, canonical_test_zh)
 
     print(f"\nSaving to {args.output_dir}/")
     for split_name, records in final_splits.items():
@@ -507,8 +545,8 @@ def main(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--poetmt_dir",  default="PoetMT-main/PoetMT-main/all_poems")
-    parser.add_argument("--ccpm_dir",    default="CCPM-master")
+    parser.add_argument("--poetmt_dir",  default="data/PoetMT-main/PoetMT-main/all_poems")
+    parser.add_argument("--ccpm_dir",    default="data/CCPM-master")
     parser.add_argument("--output_dir",  default="data/combined")
     parser.add_argument("--inspect",     action="store_true")
     main(parser.parse_args())
