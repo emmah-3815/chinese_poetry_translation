@@ -5,14 +5,14 @@ Uses Helsinki-NLP/opus-mt-zh-en (MarianMT, ~74M params) as the base model.
 It is already pre-trained on OPUS ZH->EN, so fine-tuning on poetry data
 starts from a working translator rather than mT5-base's zero translation ability.
 
-Data: data/poetmt_compact/{train,valid,test}.jsonl  (build_dataset_poetmt.py output)
+Data: data/combined/{train,valid,test}.jsonl  (build_dataset.py output)
 
 Usage:
   python pipelines/opus_mt/train_opus_mt.py
   python pipelines/opus_mt/train_opus_mt.py --epochs 15 --output_dir models/opus-mt-poetry
   python pipelines/opus_mt/train_opus_mt.py --precision bf16 --output_dir models/opus-mt-poetry-bf16
 
-Estimated training time (15 epochs, 581 train poems):
+Estimated training time (15 epochs, translation-only subset):
   ~20-35 min on Colab free T4, ~50-70 min locally
 """
 
@@ -139,7 +139,7 @@ def main(args):
     valid_ds = load_split(data_dir / "valid.jsonl")
     print(f"Train: {len(train_ds):,}  |  Valid: {len(valid_ds):,}")
     if len(train_ds) == 0 or len(valid_ds) == 0:
-        raise ValueError("No translation examples loaded. Check --data_dir points to poetmt_compact.")
+        raise ValueError("No translation examples loaded. Check --data_dir points to data/combined.")
 
     tokenizer  = MarianTokenizer.from_pretrained(MODEL_NAME)
     base_model = MarianMTModel.from_pretrained(MODEL_NAME)
@@ -197,7 +197,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir",                  default="data/poetmt_compact")
+    parser.add_argument("--data_dir",                  default="data/combined")
     parser.add_argument("--output_dir",                default="models/opus-mt-poetry")
     parser.add_argument("--epochs",                    type=int,  default=15)
     parser.add_argument("--batch_size",                type=int,  default=8)
