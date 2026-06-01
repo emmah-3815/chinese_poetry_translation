@@ -114,6 +114,8 @@ def generate_translations(model, tokenizer, sources: list[str], batch_size: int 
                 num_beams=BEAM_SIZE,
                 early_stopping=True,
                 bad_words_ids=bw_ids,
+                no_repeat_ngram_size=3,
+                repetition_penalty=1.3,
             )
         results.extend(tokenizer.batch_decode(out_ids, skip_special_tokens=True))
         print(f"  generated {min(i + batch_size, len(sources))}/{len(sources)}", end="\r")

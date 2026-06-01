@@ -43,9 +43,10 @@ MAX_TGT_LEN = 256
 
 LORA_CONFIG = LoraConfig(
     task_type=TaskType.SEQ_2_SEQ_LM,
-    r=16,
-    lora_alpha=32,
-    target_modules=["q_proj", "v_proj"],   # encoder + decoder self-attn & cross-attn
+    r=32,
+    lora_alpha=64,                          # keep alpha = 2*r scaling
+    target_modules=["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
+    # full attention (q/k/v/out) + FFN (fc1/fc2) in encoder & decoder for more adapt capacity
     lora_dropout=0.05,
     bias="none",
 )
