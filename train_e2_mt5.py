@@ -181,20 +181,33 @@ def main(args):
         callbacks=[EarlyStoppingCallback(early_stopping_patience=args.early_stopping_patience)],
     )
 
+    import time
     if torch.cuda.is_available():
         torch.cuda.reset_peak_memory_stats()
+    t_start = time.perf_counter()
     trainer.train()
-    train_peak_vram_gb = (
-        round(torch.cuda.max_memory_allocated() / 1e9, 2)
+    elapsed = time.perf_counter() - t_start
+
+    # Peak VRAM via reserved bytes / GiB — matches the E1 (Qwen) measurement method
+    peak_vram_gb = (
+        round(torch.cuda.max_memory_reserved() / 1024 ** 3, 2)
         if torch.cuda.is_available() else None
     )
-    print(f"Train peak VRAM: {train_peak_vram_gb} GB")
+    per_epoch_s = elapsed / args.epochs
+    print(f"Train time: {elapsed:.1f}s ({per_epoch_s:.1f}s/epoch) | Peak VRAM: {peak_vram_gb} GB")
 
     adapter_path = output_dir / "lora_adapter"
     model.save_pretrained(str(adapter_path))
     tokenizer.save_pretrained(str(adapter_path))
-    (output_dir / "train_stats.json").write_text(
-        json.dumps({"train_peak_vram_gb": train_peak_vram_gb}, indent=2), encoding="utf-8"
+    (output_dir / "train_perf.json").write_text(
+        json.dumps({
+            "model":          base_model_name,
+            "training_s":     round(elapsed, 2),
+            "per_epoch_s":    round(per_epoch_s, 2),
+            "peak_vram_gb":   peak_vram_gb,
+            "epochs":         args.epochs,
+            "train_examples": len(train_ds),
+        }, indent=2), encoding="utf-8"
     )
     print(f"\nAdapter saved -> {adapter_path}")
 

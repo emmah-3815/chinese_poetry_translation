@@ -219,8 +219,9 @@ def main(args):
     if torch.cuda.is_available():
         torch.cuda.reset_peak_memory_stats()
     hypotheses = generate_translations(model, tokenizer, sources, batch_size=args.batch_size)
+    # Peak VRAM via reserved bytes / GiB — matches the E1 (Qwen) measurement method
     inf_peak_vram_gb = (
-        round(torch.cuda.max_memory_allocated() / 1e9, 2)
+        round(torch.cuda.max_memory_reserved() / 1024 ** 3, 2)
         if torch.cuda.is_available() else None
     )
 
