@@ -12,7 +12,7 @@ Usage:
 
   # opus-mt + LoRA adapter
   python eval_e2_mt5.py --adapter_dir models/opus-mt-poetry/lora_adapter \
-      --base_model Helsinki-NLP/opus-mt-zh-en --no_task_prefix --flat_test
+      --base_model Helsinki-NLP/opus-mt-zh-en --no_task_prefix --no_metadata --flat_test
 
   # mT5-base baseline (no adapter)
   python eval_e2_mt5.py --baseline --flat_test --output_dir models/mt5-base-baseline/eval_results
@@ -62,29 +62,33 @@ def messages_to_pair(record: dict, prefix: str = TASK_PREFIX) -> dict | None:
     return {"source": prefix + src, "target": tgt, "raw_source": src}
 
 
-def flat_to_pair(record: dict, prefix: str = TASK_PREFIX) -> dict | None:
+def flat_to_pair(record: dict, prefix: str = TASK_PREFIX, include_metadata: bool = True) -> dict | None:
     """Load a flat-format record (Emma's canonical test set).
 
     Expected fields: chinese, english, title, author, dynasty.
+    Set include_metadata=False for models trained on raw Chinese text only (e.g. opus-mt+LoRA),
+    so the Title/Poet lines (which contain Chinese characters) don't confuse the model.
     """
     chinese = record.get("chinese", "").strip()
     english = record.get("english", "").strip()
     if not chinese or not english:
         return None
 
-    title   = record.get("title",   "")
-    author  = record.get("author",  "")
-    dynasty = record.get("dynasty", "")
+    if include_metadata:
+        title   = record.get("title",   "")
+        author  = record.get("author",  "")
+        dynasty = record.get("dynasty", "")
+        parts = [chinese]
+        if title:
+            parts.append(f"Title: {title}")
+        if author and dynasty:
+            parts.append(f"Poet: {author} ({dynasty})")
+        elif author:
+            parts.append(f"Poet: {author}")
+        raw_src = "\n".join(parts)
+    else:
+        raw_src = chinese
 
-    parts = [chinese]
-    if title:
-        parts.append(f"Title: {title}")
-    if author and dynasty:
-        parts.append(f"Poet: {author} ({dynasty})")
-    elif author:
-        parts.append(f"Poet: {author}")
-
-    raw_src = "\n".join(parts)
     return {"source": prefix + raw_src, "target": english, "raw_source": raw_src}
 
 
@@ -204,7 +208,7 @@ def main(args):
     print(f"Loading test set from {test_file} (flat={args.flat_test}, prefix={repr(prefix)}) ...")
     raw = load_jsonl(test_file)
     if args.flat_test:
-        records = [flat_to_pair(r, prefix) for r in raw]
+        records = [flat_to_pair(r, prefix, include_metadata=not args.no_metadata) for r in raw]
     else:
         records = [messages_to_pair(r, prefix) for r in raw]
     records = [r for r in records if r]
@@ -261,6 +265,9 @@ if __name__ == "__main__":
                              "(default: google/mt5-base; use Helsinki-NLP/opus-mt-zh-en for opus-mt)")
     parser.add_argument("--no_task_prefix", action="store_true",
                         help="Omit the task prefix from inputs (required for opus-mt-zh-en)")
+    parser.add_argument("--no_metadata",   action="store_true",
+                        help="Omit Title/Poet metadata from flat-test inputs. Use for opus-mt+LoRA "
+                             "which was trained on raw Chinese text only.")
     parser.add_argument("--adapter_dir", default="models/e2-mt5-compact-v1/lora_adapter")
     parser.add_argument("--flat_test",   action="store_true",
                         help="Load test file in flat format (chinese/english/title/author/dynasty) "

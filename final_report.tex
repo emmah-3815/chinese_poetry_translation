@@ -1,0 +1,470 @@
+% In the final report, you can include the following:
+% 1. Revised mid-term report
+% 2. Experiments, including dataset, experimental settings, results, analysis of results, ablation studies, etc.
+% 3. Conclusions
+% 4. If you work on theoretical topics, include the complete proof.
+% The due date of project final report is 11:59 pm PT on Jun 12.
+% The expected number of pages is 9 (excluding references), NeurIPS format.
+
+%% usefull links
+% https://huggingface.co/Qwen/Qwen2.5-1.5B
+% datasets:  https://github.com/THUNLP-AIPoet/CCPM
+% https://github.com/andongBlue/PoetMT/blob/main/all_poems/tang.jsonl
+
+
+%% Fine Tuning:
+% LoRA Configuration for Style TransferFor translation that requires "creative flair," you cannot just target the attention layers. You must target the MLP (Multi-Layer Perceptron) layers, which store the "knowledge" of how English poetry should sound.Target Modules: ["q_proj", "v_proj", "k_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]Rank ($r$): 32. Poetry involves subtle semantic shifts; $r=8$ or $16$ is often too "stiff."Alpha ($\alpha$): 64 (Rule of thumb: $2 \times r$).Dropout: 0.05 (A small amount of dropout helps the model generalize rather than just memorizing your specific training poems).
+
+%% Gemini stuff
+% Using Instruct instead of the base Qwen
+% Phase 4: Why "Instruct" instead of "Base"?
+% Even though you are fine-tuning, I recommend starting with Qwen2.5-1.5B-Instruct.
+
+% The Base model is a "continuation" machine. If you give it a poem, it might just write another poem in Chinese.
+
+% The Instruct model already understands the concept of "Translation" and "English." Your LoRA will then act as a "fine-tuner" to change its output from boring literal translation to elegant English verse.
+
+\section{Introduction}
+    Recent years, the rise of AI has led to highly sophisticated and intelligent Large Language models - LLMs capable of forming natural and human like language. LLMs have also shown an improvement over traditional machine translations as they are able to incorporate and understand contextual and relational information much better than traditional methods.~\cite{gao2024machine}
+
+    However, LLMs have yet to master the translation of foreign language poems, which is far more difficult than academic or everyday language.~\cite{gao2010translation} This project investigates whether model architecture or instruction-tuned decoder-only generation is more effective for low-resource classical Chinese poetry translation. We compare Qwen2.5-Instruct (decoder-only, instruction-tuned) against two encoder-decoder models --- opus-mt-zh-en (translation-pretrained, $\approx74$M parameters) and mT5-base (general multilingual, $\approx580$M parameters) --- all fine-tuned with parameter-efficient LoRA or QLoRA adapters on the same dataset. The primary architectural comparison is between Qwen2.5-0.5B-Instruct ($\approx500$M parameters) and opus-mt-zh-en + LoRA ($\approx74$M parameters), holding architecture as the main variable while keeping scale reasonably close.
+
+    % \textbf{Why is this problem important?}
+    Classical Chinese poetry is linguistically difficult to translate due to its highly compressed, heavily allusive, and poetic features. A high-quality translation must not only be semantically correct but should also sound natural and retain its original poetic quality which only highly skilled translators are able to replicate in the English language. On top of that, current existing LLMs struggle to mimic poetic language to the extent that it can for academic and everyday language. This limits the resources students and researchers who rely on accurate English translation to study Chinese literature.
+
+\section{Related Works}
+    The main problem is that while general-purpose LLMs produce fluent literal translations, they often fail to preserve adequacy, meaning and form. Recent research on LLMs, such as ChatGPT, shows improved accuracy over traditional translation architectures like Google Translate and DeepL~\cite{gao2024machine}. However, because these large models are trained on overwhelmingly generic internet data, they still fall short of preserving appropriate historical context, concise expression, and poetic elegance. This can be attributed to the lack of existing datasets of high quality Chinese to English translations of poetry.~\cite{chen2025benchmarking}
+
+    To address these limitations, Chen et al. proposed RATs, a fully retrival-augmented pipeline as well as PoetMT, a benchmark that includes contextual information from external databases to provide richer background for LLM translation~\cite{chen2025benchmarking}. While RATS effectively improved translation, the pipeline depended on heavy inference making it complex and costly to deploy.
+
+    Another relevant line of work is PoetryQwen, which fine-tunes Qwen2.5-14B using LoRA and builds a domain-specific dataset, CCPoetry-49K. Its results show that LoRA can significantly improve performance on classical poetry understanding tasks such as term interpretation, semantic interpretation, and emotional inference. However, its task is mainly poetry appreciation and understanding, not direct Chinese-to-English poetry translation~\cite{xie2025system}.
+
+\section{Method}
+     Addressing the existing limitations, we aim to compare the success of a decoder-only model, Qwen2.5-Instruct~\cite{qwen2.5, qwen2}, with two encoder-decoder models: mT5-base~\cite{xue2021mt5}, a general multilingual model, and opus-mt-zh-en, a model pretrained specifically on Chinese-to-English translation pairs. To evaluate their margin of improvement while limiting computational costs, we implement QLoRA on Qwen2.5-1.5B and Qwen2.5-0.5B, and standard LoRA on both mT5-base and opus-mt-zh-en.
+
+    \subsection{LoRA and QLoRA Implementation}
+    To efficiently update the models by reducing the computational burden of tuning using commercial computers, we utilize Low-Rank Adaptation (LoRA) and its quantized variant QLoRA. LoRA represents the weight update with a low-rank decomposition rather than modifying the full weight matrix $\mathbf{W}_0 \in \mathbb{R}^{d\times k}$ directly~\cite{dettmers2023qlora}.
+    \begin{gather}
+        \mathbf{W} = \mathbf{W}_0 + \Delta \mathbf{W} = \textbf{W}_0 + \textbf{BA}
+    \end{gather}
+    with $\textbf{B} \in \Bbb{R}^{d\times r},\ \textbf{A} \in \mathbb{R}^{r\times k}$ and rank $r \ll \min(d, k)$. At initialization, $\mathbf{A} \sim \mathcal{N}(0, \sigma^2)$ and $\mathbf{B} = \mathbf{0}$, ensuring the adapter contributes nothing at the start of training. The forward pass becomes,
+    \begin{gather}
+        h = \textbf{W}_0\textbf{x} + \tfrac{\alpha}{r}\textbf{BAx}
+    \end{gather}
+    where $x$ is the input, $\alpha$ is a scaling hyperparameter and $r$ is the rank.
+
+    \textbf{Standard LoRA} (used for mT5-base and opus-mt-zh-en) freezes $W_0$ in its original precision (bf16/fp32) and trains only $A$ and $B$.
+
+    \textbf{QLoRA} (used for Qwen2.5-0.5B and Qwen2.5-1.5B) additionally quantizes $W_0$ to 4-bit NF4, reducing memory further. With QLoRA, we can expect an 80\%--85\% reduction in VRAM relative to full fine-tuning, allowing Qwen2.5-1.5B to be fine-tuned within 16\,GB of GPU memory on a single consumer GPU.
+
+    \subsection{Model Architectures}
+     % Our baseline is a lightweighted decoder-only model. We use Qwen2.5-1.5B and apply QLoRA to adapt it efficiently. The training data will combine: a small amount of high-quality Chinese-English classical poetry translation data and NiuTrans / CCLUE / CCPM-style auxiliary understanding data for semantic support~\cite{xie2025system}.
+
+     % Our second path is mT5-base + encoder-decoder LoRA. Since mT5-base is architecturally more translation-oriented, this path lets us test whether an encoder-decoder model is inherently better suited for poetry translation than a decoder-only model of similar scale~\cite{xue2021mt5}. This comparison is important because it separates the effect of architecture choice from the effect of parameter-efficient adaptation.
+    \begin{description}
+        \item[1. Qwen2.5-1.5B-Instruct (Decoder-Only):] Our first method uses a lightweight decoder-only model. We use the Instruct variant rather than the base model, as the Instruct model already understands translation tasks and produces English output from Chinese input (see \S4.2 for the full justification). QLoRA is then applied to shift this aligned behaviour toward poetic elegance.
+
+        \item [2. mT5-base (Encoder-Decoder):] Our second method uses the mT5-base model~\cite{xue2021mt5}. mT5 was pretrained on mC4 (a multilingual web corpus) using a \emph{span-corruption} objective: random contiguous spans of the input are masked with sentinel tokens (e.g., \texttt{<extra\_id\_0>}), and the model is trained to predict only the masked-out spans in the decoder output. Because this task operates entirely within one language at a time and never produces a full translated sentence, mT5 has no translation capability prior to fine-tuning. LoRA is applied to adapt the encoder toward understanding classical Chinese input and the decoder toward generating English translations, learning the cross-lingual mapping from scratch on the PoetMT training set.
+
+        \item [3. opus-mt-zh-en (Encoder-Decoder, Translation-Pretrained):] Our third model is Helsinki-NLP/opus-mt-zh-en, a MarianMT encoder-decoder model pretrained specifically on Chinese-to-English translation pairs from the OPUS parallel corpus. In contrast to mT5-base, it was trained end-to-end on aligned translation pairs, giving it a strong translation-specific prior at approximately 74M parameters. We apply standard LoRA without 4-bit quantization, as the model is small enough to train without memory compression.
+    \end{description}
+
+    This comparison tests whether the instruction-tuned decoder-only Qwen2.5-1.5B model outperforms encoder-decoder models, and whether translation-specific pretraining in opus-mt-zh-en provides an advantage over the general multilingual mT5-base.
+    % The comparison between Qwen2.5 and mT5 adapted with QLoRA tests if a larger pre-trained model of Qwen2.5-1.5B  model the bidirectional understanding of the encoder-decoder architecture of mT5 is inherently better for poetry translation than the unidirectional architecture of Qwen2.5 model.
+
+
+
+    \subsection{Training Objective}
+    The training objective is to minimize the cross-entropy loss between the model-generated tokens and the expert translations in the dataset. For QLoRA (Qwen2.5), the frozen weights are quantized to 4-bit NF4 and the forward pass is~\cite{dettmers2023qlora},
+    \begin{gather}
+        \textbf{Y} = (\textbf{W}^{NF4}\cdot c_1 \cdot c_2 + \textbf{L}_A \textbf{L}_B)\textbf{X}
+    \end{gather}
+    where $c_1, c_2$ are quantization constants and $L_A, L_B$ are the low-rank adapter matrices. For standard LoRA (mT5-base, opus-mt-zh-en), the frozen weights remain in bf16/fp32 and the same cross-entropy loss applies without the quantization constants.
+
+    \subsection{Adapter Placement}
+    For poetry translation where poetic style is a priority, we target the attention projections that govern cross-lingual mapping and, where available, the feed-forward layers that store stylistic ``knowledge'' of how English verse should sound.
+    \begin{description}
+        \item[Qwen2.5-1.5B and Qwen2.5-0.5B (QLoRA):] We target all attention projections $q_{proj}, k_{proj}, v_{proj}, o_{proj}$\footnote{Layer names as used in the HuggingFace transformers implementation.} and MLP layers $\text{gate}_{proj}, \text{up}_{proj}, \text{down}_{proj}$. Adapting both attention and MLP layers captures stylistic shifts in both where the model attends and how it generates English vocabulary.
+
+        \item[mT5-base (LoRA, $r=16$, $\alpha=32$):] We target the query (\texttt{q}) and value (\texttt{v}) projections in all self-attention layers across encoder and decoder (including cross-attention). These two projections were selected as the minimal targeted adaptation given mT5's position as a lower-priority comparison point; the key and output projections and FFN layers are left in their pretrained state.
+
+        \item[opus-mt-zh-en (LoRA, $r=32$, $\alpha=64$):] We adapt all attention projections (\texttt{q\_proj}, \texttt{k\_proj}, \texttt{v\_proj}, \texttt{out\_proj}) in both encoder and decoder self-attention and decoder cross-attention, plus the feed-forward layers (\texttt{fc1}, \texttt{fc2}). Since the model already encodes a strong Chinese-to-English translation prior, LoRA is applied without 4-bit quantization, keeping pretrained weights in full precision.
+
+    \end{description}
+
+% ============================================================
+%  Theoretical Analysis
+% ============================================================
+\section{Theoretical Analysis}
+
+\subsection{Why Low-Rank Adaptation Works}
+
+    Hu et al.~\cite{hu2021lora} hypothesise that the weight updates
+    required for task-specific fine-tuning have a \emph{low intrinsic
+    rank} --- that adaptation lies in a low-dimensional subspace of the
+    full weight space.  For classical poetry translation specifically, the
+    stylistic shift from generic prose to poetic English verse may be even
+    more compact than general-domain adaptation, because the target
+    distribution is narrow and highly structured.  This makes LoRA an
+    especially strong fit: a low-rank adapter captures the relevant
+    stylistic subspace while leaving the vast majority of the pretrained
+    model's language knowledge undisturbed.
+
+\subsection{Why Instruct over Base}
+
+    The base Qwen2.5-1.5B model is a continuation model: given a
+    classical Chinese poem, it is liable to continue generating Chinese
+    text rather than producing an English translation.  The Instruct
+    variant has been aligned via instruction tuning to follow explicit
+    task prompts, including translation requests, so it already produces
+    English output from Chinese input without bespoke prompt engineering.
+    QLoRA can then specialise this aligned behaviour toward poetic
+    elegance rather than first re-teaching the model what
+    ``translate to English'' means.  This is why we use the Instruct
+    variant for both small and large Qwen2.5 paths.
+
+\subsection{Decoder-Only vs.\ Encoder-Decoder Trade-off}
+
+    The encoder-decoder architecture provides a structural translation
+    inductive bias absent from decoder-only models: the encoder builds a
+    dedicated representation of the entire classical Chinese source, and
+    the decoder \emph{cross-attends} to that representation at every
+    generation step.  This separation may benefit a low-resource task
+    where the mapping from classical Chinese to English is highly
+    non-compositional.  Conversely, Qwen2.5-Instruct's
+    instruction-following alignment may allow it to leverage broader
+    knowledge of English poetic register even without an explicit
+    source-encoding bottleneck.  Our experiments test which of these
+    inductive biases is more valuable in practice (see \S\ref{sec:results}).
+
+
+
+\section{Experiment Design}\label{sec:expdesign}
+\subsection{Hyperparameters}
+We adopt the following adapter hyperparameters based on~\cite{dettmers2023qlora}.
+
+\begin{description}
+    \item[Qwen2.5-0.5B and Qwen2.5-1.5B (QLoRA):] Rank $r=32$, $\alpha=64$ ($=2r$), dropout 0.05. Higher rank captures the stylistic nuances required for poetic register.
+    \item[opus-mt-zh-en (LoRA):] Rank $r=32$, $\alpha=64$, dropout 0.05. Same configuration as Qwen to enable a fair comparison.
+    \item[mT5-base (LoRA):] Rank $r=16$, $\alpha=32$, dropout 0.05. A more conservative configuration targeting only the query/value projections.
+\end{description}
+
+All models use learning rate $3\times10^{-4}$, gradient accumulation steps 4, and early stopping with patience 2--3 epochs.
+
+\subsection{Dataset}
+
+\textbf{Sources.} We combine two datasets.
+\emph{PoetMT}~\cite{chen2025benchmarking} is the primary parallel corpus: ${\approx}790$ classical Chinese poems with expert English translations spanning Tang, Song, and Yuan dynasties. Each poem is paired with a background file containing a modern Chinese paraphrase (\textit{fanyi}) and creation context (\textit{shangxi}), used to enrich the training prompt.
+\emph{CCPM}~\cite{li2021ccpm} provides auxiliary classical Chinese understanding signal: ${\approx}24{,}000$ (classical line $\leftrightarrow$ modern Chinese paraphrase) pairs drawn from the CCPM comprehension dataset. Because CCPM contains no English translations, it is used only as an auxiliary task for E1 (Qwen2.5 + QLoRA) and excluded from the encoder-decoder training runs (E2--E4), which filter strictly to translation pairs.
+
+\textbf{Preprocessing.} For PoetMT translation pairs we apply: length bounds (classical 4--300 characters; English 5--2{,}000 characters); language-ratio guards ($\geq30\%$ Chinese characters in the source, $\geq30\%$ Latin characters in the target); deduplication on both source and target; and rejection of identical source--target pairs. For CCPM auxiliary pairs: length bounds (classical 4--40 characters; modern 5--80 characters); Chinese-character-only pattern check on the classical side; and a sanity filter requiring the modern paraphrase to be longer than the classical line.
+
+\textbf{Splits and leakage control.} A fixed 78-poem \emph{canonical test set} is shared by every model to ensure comparable evaluation; no test poem appears in any training split. Table~\ref{tab:dataset} shows the final split counts.
+
+\begin{table}[htbp]
+\centering
+\caption{Dataset split sizes after preprocessing and leakage removal.}
+\label{tab:dataset}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Split} & \textbf{Translation (PoetMT)} & \textbf{Auxiliary (CCPM)} & \textbf{Total} \\
+\midrule
+Train & 621 & 21{,}091 & 21{,}712 \\
+Valid & 68  & 2{,}570  & 2{,}638  \\
+Test  & 78  & 0        & 78       \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent
+E1 (Qwen2.5) trains on all 21{,}712 samples (translation + CCPM auxiliary). E2--E4 (mT5-base, opus-mt-zh-en) train on the 621 translation samples only.
+
+\textbf{Prompt format.} For E1 (Qwen2.5), each PoetMT training sample's user-turn includes (when available): poem title, poet and dynasty, modern Chinese paraphrase (\textit{fanyi}), character annotations (\textit{zhu\v{s}\`{\i}}), and creation background. The classical Chinese text is placed first so it is never truncated.
+
+For E3 (opus-mt-zh-en) and E4 (mT5-base), the encoder receives only the structured user-turn content extracted from the shared messages format:
+\begin{verbatim}
+Title: {title}
+Poet: {author} ({dynasty} Dynasty)
+
+Classical Chinese:
+{poem text}
+\end{verbatim}
+The mT5 encoder input is additionally prefixed with \texttt{``translate classical Chinese to English: ''} to signal the task. opus-mt-zh-en omits this prefix entirely --- the MarianMT pretraining already encodes the zh$\to$en direction. At inference, E3 and E4 are evaluated on bare Chinese text only (no title or poet metadata), testing generalization beyond the training input distribution.
+
+    Table~\ref{tab:experiments} summarizes the four experiments.
+    E2 vs.\ E3 forms the primary architectural comparison; E1 and E4 are ablations.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Experiment design. E2 vs.\ E3 is the primary architectural comparison.}
+    \label{tab:experiments}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabular}{@{}cp{3.8cm}p{2.5cm}p{4cm}@{}}
+    \toprule
+    \textbf{Exp.} & \textbf{Model} & \textbf{Dataset} & \textbf{Purpose} \\
+    \midrule
+    E1 & Qwen2.5-1.5B-Instruct + QLoRA & PoetMT
+       & Decoder-only (large scale) \\
+    E2 & Qwen2.5-0.5B-Instruct + QLoRA & PoetMT
+       & Decoder-only (primary comparison) \\
+    E3 & opus-mt-zh-en + LoRA           & PoetMT
+       & Encoder-decoder (translation-pretrained, primary comparison) \\
+    E4 & mT5-base + LoRA               & PoetMT
+       & Encoder-decoder (general multilingual) \\
+    \bottomrule
+    \end{tabular}
+\end{table}
+
+\noindent
+\textbf{E2 vs.\ E3} is the primary comparison --- decoder-only instruction-tuned
+Qwen2.5-0.5B ($\approx500$M parameters) against encoder-decoder translation-pretrained
+opus-mt-zh-en ($\approx74$M parameters), with architecture as the primary variable.
+\textbf{E1 vs.\ E2} ablates the effect of model scale within the decoder-only family.
+\textbf{E3 vs.\ E4} isolates the importance of translation-specific pretraining: opus-mt-zh-en (translation-pretrained) versus mT5-base (span-corruption pretrained, see \S3.2), both fine-tuned on PoetMT with standard LoRA.
+
+% ============================================================
+%  Evaluation Metrics
+% ============================================================
+\subsection{Evaluation Metrics}
+
+We evaluate translation quality using three complementary automatic
+metrics and a small-scale human evaluation.
+
+\begin{description}
+    \item[BLEU-4~\cite{papineni2002bleu}:]
+    Measures 4-gram overlap with reference translations.
+    BLEU is the standard machine translation benchmark but is a known
+    weak signal for poetry, where paraphrase and stylistic variation
+    are desirable rather than penalised.
+
+    \item[ROUGE-L~\cite{lin2004rouge}:]
+    Measures longest common subsequence overlap between hypothesis and
+    reference, capturing structural similarity beyond exact $n$-gram
+    matches.
+
+    \item[BERTScore~\cite{zhang2019bertscore}:]
+    Computes token-level semantic similarity using contextual
+    embeddings.  BERTScore is more robust to paraphrase and is
+    particularly suited to poetic translation, where surface-level
+    overlap is low but semantic preservation is critical.
+
+    \item[Human evaluation (15 poems):]
+    Adequacy, fluency, and poeticness are rated on a 1--5 Likert scale
+    following the framework of Chen et al.~\cite{chen2025benchmarking}.
+    Poems are sampled to cover Tang, Song, and Yuan dynasties.
+
+    \item[Memory efficiency:]
+    Peak GPU memory is measured via \texttt{torch.cuda.max\_memory\_reserved() / 1024\^{}3} (GiB) at the end of training and inference, matching the measurement convention used for all models. Training VRAM captures adapter fine-tuning cost; inference VRAM captures per-poem generation cost on a single GPU.
+\end{description}
+
+    \noindent
+    All automatic metrics are computed on the PoetMT held-out test-set
+    (78 poems for opus-mt; 72 for mT5 after filtering empty outputs) only.
+    CCPM samples are never included in
+    translation evaluation because CCPM contains no English
+    translations.\medskip
+
+    \noindent
+    \textbf{Primary comparison (E2 vs.\ E3):} architectural comparison between decoder-only Qwen2.5-0.5B-Instruct and encoder-decoder opus-mt-zh-en.\\
+    \textbf{Scale ablation (E1 vs.\ E2):} Qwen2.5-1.5B-Instruct tests the effect of model scale within the decoder-only family.\\
+    \textbf{Pretraining comparison (E3 vs.\ E4):} opus-mt-zh-en (translation-pretrained) versus mT5-base (general multilingual) to isolate the effect of translation-specific pretraining.
+
+% ============================================================
+%  Results
+% ============================================================
+\section{Results}\label{sec:results}
+
+\subsection{Automatic Metric Results}
+
+\begin{table}[htbp]
+\centering
+\caption{Model Performance}
+\label{tab:model_comparison}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Method / Base Model} & \textbf{BLEU4} & \textbf{$\Delta$BLEU-4} & \textbf{Brevity} & \textbf{ROUGE-L (F)} & \textbf{BERTScore (F)} \\
+\midrule
+Qwen0.5B-Instruct + LoRA  & 1.6477 & +0.9022 & \textbf{1.0780} & 0.1788 & 0.8552 \\
+Qwen0.5B-Instruct + QLoRA & \textbf{2.0236} & +1.2781 & 0.9098 & \textbf{0.1823} & \textbf{0.8599} \\
+Qwen0.5B-Instruct         & 0.7455 & ---     & 2.3022 & 0.1326 & 0.8231 \\
+\midrule
+Qwen1.5B-Instruct + LoRA  & \textbf{2.8991} & +1.1532 & \textbf{1.0070} & 0.2036 & 0.8621 \\
+Qwen1.5B-Instruct + QLoRA & 2.8582 & +1.1123 & 1.0257 & \textbf{0.2151} & \textbf{0.8643} \\
+Qwen1.5B-Instruct         & 1.7459 & ---     & 1.9129 & 0.1625 & 0.8403 \\
+\midrule
+Opus-mt-zh-en + LoRA      & \textbf{2.1371} & \textbf{+1.3460} & \textbf{0.7551} & \textbf{0.2031} & \textbf{0.8574} \\
+Opus-mt-zh-en             & 0.7911 & ---     & 0.5696 & 0.1593 & 0.8364 \\
+\midrule
+mt5-base + LoRA           & 0.2035 & +0.2030 & N/A    & 0.0868 & 0.8074 \\
+mt5-base                  & 0.0005 & ---     & N/A    & 0.0043 & 0.7508 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+The Qwen 1.5B-Instruct model adapted via QLoRA achieved the highest BLEU-4 score of $2.85$, surpassing GPT-4+RAT ($2.2$~\cite{chen2025benchmarking}) despite being orders of magnitude smaller. Every fine-tuned model substantially outperformed its untuned baseline, with opus-mt+LoRA achieving the largest absolute gain ($\Delta$BLEU-4 $+1.35$). The architectural comparison is scale-dependent: at 1.5B parameters Qwen outperforms opus-mt-zh-en+LoRA, while at 0.5B the encoder-decoder model leads (see \S\ref{sec:discussion}).
+
+\subsection{Human Evaluation}
+
+Table~\ref{tab:human_eval} reports human evaluation results over 15 poems (5 per dynasty: Tang, Song, Yuan), rated on Adequacy, Fluency, and Poeticness (1--5 Likert scale). Due to resource constraints, human evaluation was conducted on opus-mt-zh-en + LoRA and its untuned baseline only.
+
+\begin{table}[htbp]
+\centering
+\caption{Human evaluation scores (1--5 Likert scale, 15 poems, higher is better).}
+\label{tab:human_eval}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Model} & \textbf{Adequacy} & \textbf{Fluency} & \textbf{Poeticness} & \textbf{Overall} \\
+\midrule
+opus-mt-zh-en + LoRA & \textbf{2.20} & \textbf{2.27} & \textbf{1.67} & \textbf{2.04} \\
+opus-mt-zh-en        & 1.53          & 1.80          & 1.13          & 1.49          \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+LoRA fine-tuning improves all three dimensions over the untuned baseline: Adequacy ($+0.67$), Fluency ($+0.47$), and Poeticness ($+0.54$). Scores are modest overall, consistent with the difficulty of low-resource poetry translation. Poeticness is the weakest dimension for both models, reflecting the well-known gap between semantic adequacy and genuine poetic register that surface-level fine-tuning on a small corpus cannot fully close.
+
+Figure~\ref{fig:examples} shows representative translation outputs. The Qwen models produce fluent, natural-sounding English verse with accurate semantic coverage. Opus-mt-zh-en + LoRA produces grammatically correct translations but tends toward somewhat shorter renderings, with a Brevity ratio of $0.76$ indicating moderate under-generation relative to reference length. mT5-base + LoRA fails to produce coherent English output, yielding repetitive fragments.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}{.5\textwidth}
+    \centering
+    \includegraphics[height=0.11\textheight]{Images/qwen2.5-0.5B-example.png}
+    \caption{Qwen2.5-0.5B + QLoRA translation example.}
+    \label{fig:qwen05b}
+    \end{subfigure}%
+    \begin{subfigure}{.5\textwidth}
+    \centering
+    \includegraphics[height=0.11\textheight]{Images/qwen2.5-1.5B-example.png}
+    \caption{Qwen2.5-1.5B + QLoRA translation example.}
+    \label{fig:qwen15b}
+    \end{subfigure}
+    \begin{subfigure}{.5\textwidth}
+    \centering
+    \includegraphics[height=0.11\textheight]{Images/opus-mt-example.png}
+    \caption{Opus-mt-zh-en + LoRA translation example.}
+    \label{fig:opusmt}
+    \end{subfigure}
+    \caption{Sample translation outputs from the three fine-tuned models on the same source poem.}
+    \label{fig:examples}
+\end{figure}
+
+\subsection{Memory Efficiency}
+
+\begin{table}[htbp]
+\centering
+\caption{Memory Efficiency Comparison}
+\label{tab:vram_comparison}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lccc}
+\toprule
+\textbf{Method / Base Model} & \textbf{Train Peak VRAM (GB)} & \textbf{Inf. Peak VRAM (GB)} \\
+\midrule
+Qwen0.5B-Instruct + LoRA  & 8.83 & 0.90 \\
+Qwen0.5B-Instruct + QLoRA & 7.43 & 0.90 \\
+Qwen0.5B-Instruct         & N/A  & 0.66 \\
+\midrule
+Qwen1.5B-Instruct + LoRA  & 12.73 & 1.91 \\
+Qwen1.5B-Instruct + QLoRA & \textbf{8.42}  & 1.91 \\
+Qwen1.5B-Instruct         & N/A   & 1.55 \\
+\midrule
+Opus-mt-zh-en + LoRA      & 7.23  & \textbf{0.39} \\
+Opus-mt-zh-en             & N/A   & 0.50 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+All training VRAM peaks remained within 16\,GB, confirming that every model in this study can be fine-tuned on a single consumer GPU. QLoRA on Qwen2.5-1.5B reduces training peak from 12.73\,GB (LoRA) to 8.42\,GB --- a 34\% reduction --- by quantizing frozen weights to 4-bit NF4. Inference VRAM scales with model size: Opus-mt-zh-en requires only 0.39\,GB (smallest model), while Qwen2.5-1.5B requires 1.91\,GB. VRAM for mT5-base training was not recorded; as it failed to produce meaningful translations (BLEU-4 $\approx 0$, Brevity undefined), it is excluded as a non-viable deployment option.
+
+% ============================================================
+%  Discussion
+% ============================================================
+\section{Discussion}\label{sec:discussion}
+
+\subsection{Scale-Dependent Architectural Trade-off}
+
+We expected the encoder-decoder models to perform better than the decoder-only model. The results reveal a scale-dependent picture. At the 1.5B-parameter scale, decoder-only Qwen2.5-1.5B (BLEU-4 2.90) comfortably outperforms opus-mt-zh-en+LoRA (BLEU-4 2.14). At smaller scale, the result reverses: opus-mt-zh-en+LoRA (74M parameters, BLEU-4 2.14, ROUGE-L 0.203) outperforms Qwen2.5-0.5B-Instruct+QLoRA (500M parameters, BLEU-4 2.02, ROUGE-L 0.182), despite being approximately $7\times$ smaller. Translation-specific pretraining proves highly parameter-efficient, and the encoder-decoder inductive bias more than compensates for the scale disadvantage at the 0.5B level. Only when the decoder-only model reaches 1.5B does its broader pretraining corpus and instruction alignment overcome this structural advantage. We offer the following analysis of why this advantage is scale-dependent.
+
+    \textbf{Pretraining data volume and composition.} Qwen2.5 was trained on trillions of tokens including large amounts of Chinese-English bilingual text, literary content, and web data that incidentally contains poetry. The model therefore enters fine-tuning already knowing \emph{how} fluent English translation reads. By contrast, mT5's span-corruption pretraining (see \S3.2) never produces a full translated sentence, and opus-mt-zh-en, while translation-pretrained, was trained on far narrower parallel corpora with no literary register.
+
+    \textbf{Instruction alignment as a strong translation prior.} The Instruct variant has undergone RLHF/SFT on translation tasks, so QLoRA is nudging a model that already knows what elegant translation looks like --- the adapter only shifts style. The encoder-decoder models must simultaneously learn both the translation mapping \emph{and} the stylistic shift from the small PoetMT training set.
+
+    \textbf{Tokenizer coverage of classical Chinese.} Qwen's tokenizer was trained on high-density Chinese text including classical forms, allowing 4-character compounds to be tokenised compactly. The SentencePiece vocabularies of mT5 and MarianMT were optimised for modern web-prose; classical characters and rare compounds may be over-segmented, losing morphological signals before the encoder processes them.
+
+    \textbf{Causal generation dynamics.} Decoder-only models condition each output token on all prior generated tokens, providing a rich autoregressive English context. Encoder-decoder models use cross-attention with a fixed key/value representation of the source, which offers a structural advantage --- a dedicated source encoding stage --- but limits dynamic re-weighting as generation style develops. At 74M parameters, opus-mt's translation-pretrained cross-attention makes effective use of this structural separation; the decoder-only advantage emerges only once Qwen has sufficient capacity (1.5B) to leverage its broader pretraining over this structural benefit.
+
+    \textbf{Broader architectural consensus.} All current frontier language models (GPT-4, Gemini, Claude) use decoder-only architectures, suggesting this family scales more effectively with instruction tuning and exhibits stronger emergent capabilities in stylistic generation tasks. At the 1.5B scale, Qwen2.5 achieves substantially higher absolute scores ($+0.75$ BLEU-4 over opus-mt+LoRA) and larger relative gains from fine-tuning. At 0.5B, the advantage reverses: opus-mt+LoRA (74M, BLEU-4 2.14) outperforms Qwen2.5-0.5B+QLoRA (500M, BLEU-4 2.02), confirming that translation-specific pretraining substitutes for parameter count when the decoder-only model lacks sufficient capacity.
+
+\subsection{Limitations}
+
+\textbf{Metric sensitivity.} BLEU and ROUGE-L correlate poorly with human judgments of poeticness, and BERTScore --- while more robust to paraphrase --- was not designed for verse. Our human evaluation covers 15 poems on a 1--5 Likert scale, which gives directional signal but carries variance from a limited annotator pool and cannot be treated as a definitive ranking.
+
+\textbf{Compute budget.} Within the time and compute constraints of a quarter-long project, hyperparameter sweeps for each model are limited. The size-controlled comparison (E2 vs.\ E3) holds the fine-tuning method and dataset fixed, but we cannot rule out that more aggressive per-model tuning would shift the relative ranking.
+
+\textbf{Generalizability.} Our framework is validated only on classical Chinese poetry. While we expect the methodology to transfer to other highly stylized translation tasks (ancient prose, religious texts, indigenous storytelling), this remains a hypothesis until empirically tested.
+
+% ============================================================
+%  Novelty and Advantages
+% ============================================================
+\section{Novelty and Advantages}
+The primary novelty of our work is to frame classical Chinese poetry
+translation as \emph{stylistic cloning} via parameter-efficient fine-tuning,
+rather than as pure linguistic equivalence. Unlike retrieval-augmented
+pipelines such as RATs~\cite{chen2025benchmarking}, which incur retrieval
+and reasoning cost on every query, our approach concentrates the cost in a
+one-time training pass. We do not discard contextual knowledge: instead, we move it
+from the retrieval stage into the training stage by encoding modern Chinese paraphrases and creation background directly into the prompt during fine-tuning.
+
+We make three concrete contributions:
+
+\textbf{Size-controlled architectural comparison.} We compare a decoder-only
+model (Qwen2.5-1.5B-Instruct) against encoder-decoder models under an identical
+LoRA/QLoRA fine-tuning regime. To our knowledge, no prior work has isolated
+the architectural variable for Chinese poetry translation at this scale.
+
+\textbf{Opus-mt baseline.} We include Helsinki-NLP/opus-mt-zh-en as a dedicated encoder-decoder translation baseline, enabling a direct comparison between a translation-pretrained encoder-decoder model and an instruction-tuned decoder-only model under the same LoRA fine-tuning regime. This isolates the contribution of translation-specific pretraining from general multilingual pretraining.
+
+\textbf{Adapter placement.} We adapt both attention and feed-forward layers,
+motivated by the hypothesis that poetic style is encoded in MLP
+``knowledge'' sublayers and not solely in attention, and consistent with
+Dettmers et al.'s finding that adapting all linear layers is necessary to
+match full fine-tuning performance~\cite{dettmers2023qlora}.
+
+\subsection{Computational Efficiency}
+A central advantage of our framework is its accessibility on commodity
+hardware. We monitor:
+\begin{description}
+    \item[VRAM Usage:] Peak GPU memory during training and inference.
+    QLoRA's 4-bit NF4 quantization combined with paged optimizers keeps fine-tuning Qwen2.5-1.5B below 16\,GB; opus-mt-zh-en fits comfortably below 8\,GB.
+    \item[Inference Latency:] Average wall-clock time per poem. A faster,
+    smaller fine-tuned model may be preferable for deployment even if its
+    quality is marginally lower.
+    \item[Trainable Parameter Count:] The number of adapter parameters
+    relative to total model parameters, quantifying the efficiency of each
+    QLoRA configuration (typically $<1\%$ of base parameters).
+\end{description}
+
+% ============================================================
+%  Conclusion
+% ============================================================
+\section{Conclusion}
+We compared LoRA and QLoRA fine-tuning of decoder-only and encoder-decoder models for classical Chinese poetry translation. Qwen2.5-1.5B+QLoRA achieved BLEU-4 of 2.86, ROUGE-L of 0.2151, and BERTScore of 0.8643 --- surpassing GPT-4+RAT (BLEU-4 2.2~\cite{chen2025benchmarking}) despite being orders of magnitude smaller, and confirming that fine-tuning consistently closes the gap to much larger models. Every fine-tuned model substantially outperformed its untuned baseline: Qwen2.5-1.5B improved from BLEU-4 1.75 to 2.86; opus-mt-zh-en from 0.79 to 2.14. At the 1.5B-parameter scale, Qwen2.5-1.5B-Instruct outperforms opus-mt-zh-en+LoRA by a wide margin (BLEU-4 2.86 vs.\ 2.14), consistent with Qwen's larger pretraining corpus and instruction-following alignment. At smaller scale, however, opus-mt-zh-en+LoRA (74M, BLEU-4 2.14) outperforms Qwen2.5-0.5B-Instruct+QLoRA (500M, BLEU-4 2.02) despite a $7\times$ parameter disadvantage, showing that translation-specific pretraining fully compensates for reduced capacity at this scale. QLoRA reduced Qwen2.5-1.5B training VRAM from 12.73\,GB to 8.42\,GB, keeping fine-tuning within reach of a single consumer GPU.
+
+A fundamental limitation remains: all models translate at the lexical level without resolving the cultural allusions (\textit{di\v{a}ng\`{u}}) --- the historical events, myths, and intertextual references that give classical Chinese verse its depth of meaning. A technically accurate surface-level translation still loses what a native reader perceives. This is the most pressing open challenge in literary machine translation, and we outline concrete steps toward it in Future Work.
+
+% ============================================================
+%  Future Work
+% ============================================================
+\section{Future Work}
+We suggest improvements across three directions: data, cultural preservation, and evaluation methodology.
+
+\textbf{Dataset size and coverage.} High-quality parallel Chinese-English poetry corpora remain scarce. PoetMT is small relative to general-domain MT datasets and is dominated by Tang \emph{shi}-style poetry, which may cause fine-tuned models to overfit to that register and generalize poorly to Song \emph{ci} or other classical forms.
+
+\textbf{Retaining cultural references.} The \textit{di\v{a}ng\`{u}} problem remains unsolved: current fine-tuning on PoetMT learns surface paraphrase patterns but cannot resolve allusions it has never seen annotated. Two concrete steps use data already available: (1) use CCPM~\cite{li2021ccpm} as an auxiliary cultural-understanding phase before translation fine-tuning; (2) include cultural gloss (poet biography, allusion glossary, dynastic context) in the training prompt, so the adapter absorbs that knowledge and can use it at inference without per-query retrieval cost.
+
+\textbf{Culture-aware evaluation.} Standard BLEU and ROUGE cannot measure cultural preservation because reference translations are themselves often culturally stripped. A meaningful future metric would score whether named historical figures, seasonal imagery, and allusion phrases survive in the output in any recognisable form --- as direct translation, culturally equivalent substitution, or explanatory gloss.

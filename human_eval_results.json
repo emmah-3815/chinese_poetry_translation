@@ -1,0 +1,366 @@
+{
+  "poems": [
+    {
+      "chinese": "绕床饥鼠，蝙蝠翻灯舞。屋上松风吹急雨，破纸窗间自语。平生塞北江南，归来华发苍颜。布被秋宵梦觉，眼前万里江山。",
+      "english": "Around the bed run hungry rats;In lamplight to and fro fly bats.On pine-shaded roof the wind and shower rattle;The window paper scraps are heard to prattle.I roam from north to south, from place to place,And come back with grey hair and wrinkled face.I woke up in thin quilt on autumn night;The boundless land I dreamed of still remains in sight.",
+      "title": "清平乐",
+      "author": "辛弃疾",
+      "dynasty": "Song",
+      "dynasty_raw": "宋代",
+      "predictions": {
+        "opus-mt + LoRA": "The bed is filled with hungry rats;The bats turn the light and dance.At the house, the wind blows in the rain;In the window of paper we speak.When we've lived south of the north river,I come back to China to look upon the face.The cloth was dreamt of autumn night.A thousand miles and miles and mountains in sight.",
+        "opus-mt baseline": "Roast rats, bats, lights dance. The house is soaked in the rain and the windows are broken. In the middle of the day, south of the Sebei River, you come back to China and you look like you're on fire."
+      }
+    },
+    {
+      "chinese": "槛菊愁烟兰泣露。罗幕轻寒，燕子双飞去。明月不谙离恨苦。斜光到晓穿朱户。昨夜西风凋碧树。独上高楼，望尽天涯路。欲寄彩笺兼尺素。山长水阔知何处。",
+      "english": "Orchids shed tears with doleful asters in mist grey.How can they stand the cold silk curtains can't allay?A pair of swallows flies away.The moon, which knows not parting grief, sheds slanting light,Through crimson windows all the night.Last night the western breezeBlew withered leaves off trees.I mount the tower highAnd strain my longing eye.I'll send a message to my dear,But endless ranges and streams separate us far and near.",
+      "title": "蝶恋花",
+      "author": "晏殊",
+      "dynasty": "Song",
+      "dynasty_raw": "宋代",
+      "predictions": {
+        "opus-mt + LoRA": "The chrysanthemum sighs and weeps.The balusoles are cold and cold,And the swallows fly away.The moon and moon do not know how to go away from bitter.The light of the moon goes to the tree of dawn.The western wind fades over the tree last night.Only I go up to the tower high,I look down on the path of the sky.I want to send a pavilion with flimsy hair.The mountains long and long and wide.",
+        "opus-mt baseline": "The chrysanthemum is cold and the swallows are flying. The moon is not clear from bitterness. The sun is leaning to Xiao Dhu. Last night, the west wind sprung a tree. All the way up, all the way to the sky."
+      }
+    },
+    {
+      "chinese": "长相思，长相思。若问相思甚了期，除非相见时。长相思，长相思。欲把相思说似谁，浅情人不知。",
+      "english": "I yearn for long,I yearn for long.When may I end my yearning song?Until you come along.I yearn for long,I yearn for long.To whom may I sing my love song?To none in love not strong.",
+      "title": "长相思",
+      "author": "晏几道",
+      "dynasty": "Song",
+      "dynasty_raw": "宋代",
+      "predictions": {
+        "opus-mt + LoRA": "I think long and long,I think long.I ask you long and far, unless I see you again.I think good and long.As long as I think of you,I know not who I am.",
+        "opus-mt baseline": "Think about each other, think about each others. It's time to think about it, not when you see each other. Think about one another, think of another. You don't know who you're thinking about."
+      }
+    },
+    {
+      "chinese": "不是爱风尘，似被前缘误。花落花开自有时，总赖东君主。去也终须去，住也如何住！若得山花插满头，莫问奴归处。",
+      "english": "Is it a fallen life I love?It's the mistake of fate above.In time flowers blow, in time flowers fall;It's all up to the east wind, all.By fate! Have to go my way;If not, where can I stay?If my head were crowned with flowers,Do not as me where are my bowers!注释：",
+      "title": "卜算子",
+      "author": "严蕊",
+      "dynasty": "Song",
+      "dynasty_raw": "宋代",
+      "predictions": {
+        "opus-mt + LoRA": "It's not wind dust, it's like I'm lost in the past.The flowers fall and fall,At some point, the King of the West has to go.At last I have to go;How can I live?If the mountains are filled with flowers, I ask my slave to go home.",
+        "opus-mt baseline": "It's not love dust, it's a mistake. Flowers bloom from time to time, the King of Leathon. You have to go and live. If you put a mountain flower in your head, don't ask if you want it back."
+      }
+    },
+    {
+      "chinese": "明月别枝惊鹊，清风半夜鸣蝉。稻花香里说丰年，听取蛙声一片。七八个星天外，两三点雨山前。旧时茅店社林边，路转溪桥忽见。",
+      "english": "Startled by magpies leaving the branch in moonlight,I hear cicadas shrill in the breeze at midnight.The dcefields' sweet smell promises a bumper year;Listen, how frogs' croaks please the ear!Beyond the clouds seven or eight stars twinkle;Before the hills two or three raindrops sprinkle.There is an inn beside the village temple. Look!The winding path leads to the hut beside the brook.",
+      "title": "西江月",
+      "author": "辛弃疾",
+      "dynasty": "Song",
+      "dynasty_raw": "宋代",
+      "predictions": {
+        "opus-mt + LoRA": "The moon is sighing at night;The wind is blowing in the middle of the night.The rice flower fragrances tell me how old a year is.Amid seven or eight stars out of the sky,I hear frogs sounding all over the mountain of rain at two or three o'clock.The old days were by the pavilion’s side of the forest,And I saw the bridge turning the stream.",
+        "opus-mt baseline": "The moon will be stunned and the wind will be ringing in the middle of the night. Rice blossoms will say they'll be rich, listening to frogs. Seven or eight stars out of the sky, two or three o'clock before rain. At the edge of the old shop, the brook bridge will be missed."
+      }
+    },
+    {
+      "chinese": "杨花落尽子规啼，闻道龙标过五溪。我寄愁心与明月，随君直到夜郎西。",
+      "english": "All willow-down has fallen and sad cuckoos cryTo hear you banished southwestward beyond Five Streams.I would confide no sorrow to the moon on highFor it will follow you west of the Land of Dreams.",
+      "title": "闻王昌龄左迁龙标遥有此寄",
+      "author": "李白",
+      "dynasty": "Tang",
+      "dynasty_raw": "唐代",
+      "predictions": {
+        "opus-mt + LoRA": "The roses fall to the end,And hear the dragon's sign pass through the five streams.My sorrow and moon go with me till the king goes west in the night.",
+        "opus-mt baseline": "I'm worried about you and the moon until the end of the night."
+      }
+    },
+    {
+      "chinese": "锦瑟无端五十弦，一弦一柱思华年。庄生晓梦迷蝴蝶，望帝春心托杜鹃。沧海月明珠有泪，蓝田日暖玉生烟。此情可待成追忆，只是当时已惘然。",
+      "english": "Why should the sad zither have fifty strings?Each string, each strain evokes but vanished springs:Dim morning dream to be a butterfly;Amorous heart poured out in cuckoo’s cry.In moonlit pearls see tears in mermaid’s eyes;From sunburnt jade in Blue Field let smoke rise.Such feeling cannot be recalled again;It seemed lost even when it was felt then.",
+      "title": "锦瑟",
+      "author": "李商隐",
+      "dynasty": "Tang",
+      "dynasty_raw": "唐代",
+      "predictions": {
+        "opus-mt + LoRA": "The moon and moon come with tears;The blue fields warm with smoke.At the moment, I'm glad to remember.",
+        "opus-mt baseline": "Jinsel's 50th string, a single string, is the year of Xiahua. The dream butterfly looks at the heart of the Emperor's spring. There are tears in the sea and the blue moon warms up the smoke. This can be remembered as though it had already happened. Title: Jinther Poet: Li Hong Hing (Tang Dao)"
+      }
+    },
+    {
+      "chinese": "摇落深知宋玉悲，风流儒雅亦吾师。怅望千秋一洒泪，萧条异代不同时。江山故宅空文藻，云雨荒台岂梦思？最是楚宫俱泯灭，舟人指点到今疑。",
+      "english": "When leaves shiver and fall, I see the poet drear;Gallant and elegant, he is my master dear.Looking back a thousand springs, can I not shed tears?Desolate for long, we are not of the same years.His autumn song’s left in his old home by the stream.Did clouds bring showers for flowers in the king’s dream?Even the royal palace falls now in decay,The boatman points to the ruins in doubt today.",
+      "title": "咏怀古迹五首（其二）",
+      "author": "杜甫",
+      "dynasty": "Tang",
+      "dynasty_raw": "唐代",
+      "predictions": {
+        "opus-mt + LoRA": "How could you dream of the rain and rain on the roof?The palace's dead,And the boatman's in doubt.",
+        "opus-mt baseline": "Quite a few years ago, I was in love with you, and you knew that you'd be happy to be here."
+      }
+    },
+    {
+      "chinese": "潮满冶城渚，日斜征虏亭。蔡洲新草绿，幕府旧烟青。兴废由人事，山川空地形。后庭花一曲，幽怨不堪听。",
+      "english": "The tide overwhelms the forge’s site,The tower drowned in slanting sunlight.The islet covered with grass green,And hills are veiled by a smoke screen.Man decides a state’s rise and fall,Hills and streams can do nothing at all.O hear the captive ruler’s song!How can you bear his grief for long?",
+      "title": "金陵怀古",
+      "author": "刘禹锡",
+      "dynasty": "Tang",
+      "dynasty_raw": "唐代",
+      "predictions": {
+        "opus-mt + LoRA": "The tide is filled with steeds;The sun sets in the pavilion.The green grass is green in Celessee;The smoke in the palace is green.The wind and wind are broken by men;The mountains and mountains are empty in the terrain.A song of flowers in the courtyard is heard.",
+        "opus-mt baseline": "Tile: Weigu Poet: Liu Xiaoxi (Tung Dao)"
+      }
+    },
+    {
+      "chinese": "慈母手中线，游子身上衣。临行密密缝，意恐迟迟归。谁言寸草心，报得三春晖。",
+      "english": "From the threads a mother’s hand weaves,A gown for parting son is made.Sown stitch by stitch before he leaves,For fear his return be delayed.Such kindness as young grass receivesFrom the warm sun can’t be repaid.",
+      "title": "游子吟",
+      "author": "孟郊",
+      "dynasty": "Tang",
+      "dynasty_raw": "唐代",
+      "predictions": {
+        "opus-mt + LoRA": "The mother of mercy has the line;The son of a swimmer wears his coat.According to the seams, he fears to come back late.Who can speak to the heart of grass and drink?",
+        "opus-mt baseline": "Tile: Street: Poot: Mon suburb (Dondai)"
+      }
+    },
+    {
+      "chinese": "盍西村杏花开候不曾晴，败尽游人兴。红雪飞来满芳径。问春莺，春莺无语风方定。小蛮有情，夜凉人静，唱彻醉翁亭。",
+      "english": "He XicunSince apricots bloomed, the weather drearHas disappointed the sightseer.Blooms fall like red snow over the fragrant way.I ask the oriole where is spring;It answers not and the wind dies away.Hear the young songstress singWhen all are still in the cool night!",
+      "title": "小桃红",
+      "author": "杂咏",
+      "dynasty": "Yuan",
+      "dynasty_raw": "元代",
+      "predictions": {
+        "opus-mt + LoRA": "In the western village, the almond flowers have opened and gone.The red snow has come to fill the path with fragrance.Ask spring beavers;The wind has no word to say.At night's cold, they're quiet.",
+        "opus-mt baseline": "Apricots in the village of Suxi are waiting for nothing. The red snow has come with a radiant path. Asking about spring beavers, spring beetles are silent. Little love, cold night, singin' all drunk."
+      }
+    },
+    {
+      "chinese": "无名氏一夜千条计，百年万世心。火院有海来深。头枕着连城玉，脚踩着遍地金。有一日死来临，问贪公哪一件儿替得您？",
+      "english": "AnonymousYou weave a thousand plots one night,And plan for a hundred years bright.Your pit of hell is as deep as the sea.On precious jade you pillow your head,On a field of gold your feet tread.One day when death befalls you, see!",
+      "title": "梧叶儿",
+      "author": "贪",
+      "dynasty": "Yuan",
+      "dynasty_raw": "元代",
+      "predictions": {
+        "opus-mt + LoRA": "I'm a thousand people in the night.A hundred years and a thousand years of my heart.At the courtyard there is a sea deep.The head overflows the city with jade,And feet fall on gold all over the land.A day has come to die.Again, ask me which one of you will take your place.",
+        "opus-mt baseline": "A thousand dead men a night, a hundred years of hearts. There's a sea deep in the court of fire. On the head and on the feet, there's gold everywhere. One day you die, ask the corrupter which one of you will take your place?"
+      }
+    },
+    {
+      "chinese": "查德卿临故国，认残碑，伤心六朝如逝水。物换星移，城是人非，今古一枰棋。南柯梦一觉初回，北邙坟三尺荒堆。四围山护绕，几处树高低。谁曾赋黍离离？",
+      "english": "Zha DeqingComing to ancient capital,I find nothing but ruined wall,Grieved that Six Dynasties have passed like running stream.Things have changed and stars turned around;Men live not so long as towns stand.History is nothing less than a game of chess.Soon we wake up from our vain dreamTo find on northern land but burial mound,Which mountains on four sides surround.How many trees growHigh and low?",
+      "title": "柳营曲",
+      "author": "金陵故址",
+      "dynasty": "Yuan",
+      "dynasty_raw": "元代",
+      "predictions": {
+        "opus-mt + LoRA": "The King of Chad has come to the land, and he believes in the ruins;He's sad as he's gone away.At the moment the stars have changed;The city is not human.When I dream of my first return,The North Cerebral is three feet old.The mountains are surrounded,How many trees are low and low?Who has given me separation?",
+        "opus-mt baseline": "Mr. Chad has come to his home country to recognize the remains, and his sorrows have passed away. The city is different from one another, and it's an old chess game. South Cordwin's first return, the North Cemetery is three feet old."
+      }
+    },
+    {
+      "chinese": "乔吉（一）雁儿落殷勤红叶诗，冷淡黄花市。清江天水笺，白雁云烟字。",
+      "english": "Qiao Ji（I）Tune: Falling SwanThank you for your verse on leaf redIn cold place where yellow blooms spread.Clear stream and sky are paper white,",
+      "title": "雁儿落过得胜令",
+      "author": "忆别",
+      "dynasty": "Yuan",
+      "dynasty_raw": "元代",
+      "predictions": {
+        "opus-mt + LoRA": "(I)The geese fall in love with the red leaves,The cold yellow flower market.The clear river of water in the sky,The white gee clouds of smoke.",
+        "opus-mt baseline": "Jorgy (i) The geese fall in love with red leaves and cold yellow flowers."
+      }
+    },
+    {
+      "chinese": "翠立数峰寒，碧锁暮云间。媚景春前赏，晴岚雨后看。开颜，玉盏金波满。狼山，人生相会难。",
+      "english": "Peak on peak stands like emerald;Cloud on cloud locks the evening cold.Gaze on the charming vernal plainAnd sun-lit hills after the rain!O brighten upAnd fill to the brim with golden wine the jade cup!Deep in the hill,",
+      "title": "（二）得胜令",
+      "author": "",
+      "dynasty": "Yuan",
+      "dynasty_raw": "元代",
+      "predictions": {
+        "opus-mt + LoRA": "The jade peaks are cold;The dark clouds are darkened.The fragrant view before spring,The sunny rain turns on them.Could they look at their face,The jade pavilion is filled with golden waves?The mountain of wolves can be hard to meet.",
+        "opus-mt baseline": "Tile: (ii) Winner."
+      }
+    }
+  ],
+  "ratings": {
+    "绕床饥鼠，蝙蝠翻灯舞。屋上松风吹急雨，破": {
+      "opus-mt + LoRA": {
+        "adequacy": 2,
+        "fluency": 2,
+        "poeticness": 2
+      },
+      "opus-mt baseline": {
+        "adequacy": 2,
+        "fluency": 2,
+        "poeticness": 1
+      }
+    },
+    "槛菊愁烟兰泣露。罗幕轻寒，燕子双飞去。明": {
+      "opus-mt + LoRA": {
+        "adequacy": 2,
+        "fluency": 2,
+        "poeticness": 2
+      },
+      "opus-mt baseline": {
+        "adequacy": 2,
+        "fluency": 1,
+        "poeticness": 1
+      }
+    },
+    "长相思，长相思。若问相思甚了期，除非相见": {
+      "opus-mt + LoRA": {
+        "adequacy": 3,
+        "fluency": 3,
+        "poeticness": 2
+      },
+      "opus-mt baseline": {
+        "adequacy": 2,
+        "fluency": 2,
+        "poeticness": 1
+      }
+    },
+    "不是爱风尘，似被前缘误。花落花开自有时，": {
+      "opus-mt + LoRA": {
+        "adequacy": 3,
+        "fluency": 3,
+        "poeticness": 2
+      },
+      "opus-mt baseline": {
+        "adequacy": 1,
+        "fluency": 2,
+        "poeticness": 1
+      }
+    },
+    "明月别枝惊鹊，清风半夜鸣蝉。稻花香里说丰": {
+      "opus-mt + LoRA": {
+        "adequacy": 2,
+        "fluency": 2,
+        "poeticness": 2
+      },
+      "opus-mt baseline": {
+        "adequacy": 2,
+        "fluency": 2,
+        "poeticness": 2
+      }
+    },
+    "杨花落尽子规啼，闻道龙标过五溪。我寄愁心": {
+      "opus-mt + LoRA": {
+        "adequacy": 2,
+        "fluency": 3,
+        "poeticness": 2
+      },
+      "opus-mt baseline": {
+        "adequacy": 1,
+        "fluency": 3,
+        "poeticness": 1
+      }
+    },
+    "锦瑟无端五十弦，一弦一柱思华年。庄生晓梦": {
+      "opus-mt + LoRA": {
+        "adequacy": 1,
+        "fluency": 2,
+        "poeticness": 1
+      },
+      "opus-mt baseline": {
+        "adequacy": 2,
+        "fluency": 2,
+        "poeticness": 1
+      }
+    },
+    "摇落深知宋玉悲，风流儒雅亦吾师。怅望千秋": {
+      "opus-mt + LoRA": {
+        "adequacy": 2,
+        "fluency": 2,
+        "poeticness": 1
+      },
+      "opus-mt baseline": {
+        "adequacy": 1,
+        "fluency": 1,
+        "poeticness": 1
+      }
+    },
+    "潮满冶城渚，日斜征虏亭。蔡洲新草绿，幕府": {
+      "opus-mt + LoRA": {
+        "adequacy": 2,
+        "fluency": 2,
+        "poeticness": 2
+      },
+      "opus-mt baseline": {
+        "adequacy": 1,
+        "fluency": 1,
+        "poeticness": 1
+      }
+    },
+    "慈母手中线，游子身上衣。临行密密缝，意恐": {
+      "opus-mt + LoRA": {
+        "adequacy": 2,
+        "fluency": 2,
+        "poeticness": 1
+      },
+      "opus-mt baseline": {
+        "adequacy": 1,
+        "fluency": 1,
+        "poeticness": 1
+      }
+    },
+    "盍西村杏花开候不曾晴，败尽游人兴。红雪飞": {
+      "opus-mt + LoRA": {
+        "adequacy": 3,
+        "fluency": 3,
+        "poeticness": 2
+      },
+      "opus-mt baseline": {
+        "adequacy": 2,
+        "fluency": 2,
+        "poeticness": 2
+      }
+    },
+    "无名氏一夜千条计，百年万世心。火院有海来": {
+      "opus-mt + LoRA": {
+        "adequacy": 2,
+        "fluency": 2,
+        "poeticness": 1
+      },
+      "opus-mt baseline": {
+        "adequacy": 2,
+        "fluency": 3,
+        "poeticness": 1
+      }
+    },
+    "查德卿临故国，认残碑，伤心六朝如逝水。物": {
+      "opus-mt + LoRA": {
+        "adequacy": 2,
+        "fluency": 1,
+        "poeticness": 1
+      },
+      "opus-mt baseline": {
+        "adequacy": 1,
+        "fluency": 2,
+        "poeticness": 1
+      }
+    },
+    "乔吉（一）雁儿落殷勤红叶诗，冷淡黄花市。": {
+      "opus-mt + LoRA": {
+        "adequacy": 3,
+        "fluency": 3,
+        "poeticness": 2
+      },
+      "opus-mt baseline": {
+        "adequacy": 2,
+        "fluency": 2,
+        "poeticness": 1
+      }
+    },
+    "翠立数峰寒，碧锁暮云间。媚景春前赏，晴岚": {
+      "opus-mt + LoRA": {
+        "adequacy": 2,
+        "fluency": 2,
+        "poeticness": 2
+      },
+      "opus-mt baseline": {
+        "adequacy": 1,
+        "fluency": 1,
+        "poeticness": 1
+      }
+    }
+  }
+}
