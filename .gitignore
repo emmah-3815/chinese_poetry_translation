@@ -10,8 +10,6 @@ models/
 # opus-mt model weights that landed in eval_results/
 eval_results/opus-mt-poetry/checkpoint-*/
 eval_results/opus-mt-poetry/lora_adapter/
-# contaminated leakage mT5 results (e2-mt5-fp32-v2, n_samples=72)
-eval_results/mt5_eval_results_final/
 # IDE
 .vscode/
 
