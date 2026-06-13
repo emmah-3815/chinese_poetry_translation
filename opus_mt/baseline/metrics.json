@@ -1,0 +1,12 @@
+{
+  "bleu4": 0.7911,
+  "brevity": 0.5696,
+  "rouge1": 0.2386,
+  "rouge2": 0.0294,
+  "rougeL": 0.1593,
+  "n_samples": 78,
+  "bertscore_p": 0.8534,
+  "bertscore_r": 0.8201,
+  "bertscore_f": 0.8364,
+  "inf_peak_vram_gb": 0.5
+}

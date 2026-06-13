@@ -1,0 +1,8 @@
+{
+  "model": "Helsinki-NLP/opus-mt-zh-en",
+  "training_s": 583.8,
+  "per_epoch_s": 38.92,
+  "peak_vram_gb": 6.85,
+  "epochs": 15,
+  "train_examples": 621
+}

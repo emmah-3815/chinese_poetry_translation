@@ -1,0 +1,37 @@
+# datasets (large raw + processed files)
+data/
+# keep the canonical test set in the repo so Colab runs get the same eval split
+!data/
+!data/combined/
+!data/combined/test_canonical.jsonl
+
+# trained model weights & checkpoints
+models/
+# opus-mt model weights that landed in eval_results/
+eval_results/opus-mt-poetry/checkpoint-*/
+eval_results/opus-mt-poetry/lora_adapter/
+# IDE
+.vscode/
+
+# Claude Code settings
+.claude/
+
+# pip / build artifacts
+=*
+unsloth_compiled_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# HuggingFace cache
+.cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# project-local Claude Code instructions (untracked per request)
+CLAUDE.md
