@@ -1,0 +1,7 @@
+{
+  "inference_total_s": 118.908,
+  "inference_per_poem_s": 1.5245,
+  "inference_per_poem_ms": 1524.46,
+  "peak_vram_gb": 0.66,
+  "n_poems": 78
+}
