@@ -44,23 +44,23 @@ Background files are joined to poem files by `title`.
 - No CCPM auxiliary samples mixed into test
 - Reason: BLEU/BERTScore only make sense on Chinese→English pairs
 - Test set carved out **before shuffling** for reproducibility
-- 73 test samples is acceptable for poetry translation — this domain emphasizes qualitative evaluation alongside BLEU
+- 78 test samples is acceptable for poetry translation — this domain emphasizes qualitative evaluation alongside BLEU
 
 #### CCPM `test_public.jsonl` Excluded
 - Public competition file with no `answer` field provided
 - Only `train.jsonl` and `valid.jsonl` are used
 
 #### Input Prompt Includes Rich Context
-Each PoetMT training sample's input prompt includes (when available):
-- English title (with Chinese in parens)
+Each PoetMT training sample's user message includes (when available):
+- Title (Chinese)
 - Poet + dynasty
-- Modern Chinese meaning (from `background.fanyi`)
-- Annotations / 注释
-- English note
-- Creation background (from `background.about`)
+- Annotations / 注释 (527/621 train, 59/68 valid, 72/78 test)
+- Creation background (309/621 train, 33/68 valid, 40/78 test)
 - Classical Chinese poem text
 
-This is a meaningful contrast to standard MT setups — the model is told *who, when, what it means, and what to watch for* before producing the translation.
+Modern Chinese 译文 and English notes are **not** currently included in the prompt despite being present in the raw PoetMT files.
+
+This is a meaningful contrast to standard MT setups — the model is told *who, when, and what to watch for* before producing the translation.
 
 ### E2 / opus-mt Dataset
 
@@ -70,9 +70,9 @@ For E2 (mT5-base + LoRA) and Path 2b (opus-mt + LoRA), CCPM is excluded at train
 
 | Split | Translation samples | Source |
 |---|---|---|
-| Train | 579 | `data/combined/train.jsonl` filtered to `task == "translation"` |
-| Valid | 72 | `data/combined/valid.jsonl` filtered to `task == "translation"` |
-| Test (local) | 72 | `data/combined/test.jsonl` (chat-format, Juqy's split) |
+| Train | 621 | `data/combined/train.jsonl` filtered to `task == "translation"` |
+| Valid | 68 | `data/combined/valid.jsonl` filtered to `task == "translation"` |
+| Test (local) | 78 | `data/combined/test.jsonl` (chat-format, Juqy's split) |
 | Test (canonical) | 78 | `data/combined/test_canonical.jsonl` (flat-format, Emma's set) |
 
 ### Canonical Test Set
@@ -90,12 +90,13 @@ See `split_alignment_status.md` for the historical root-cause analysis of the 72
 
 | Split | Total | Translation | Auxiliary (CCPM) |
 |---|---|---|---|
-| Train | 21,669 | 578 | 21,091 |
-| Valid | 2,642 | 72 | 2,570 |
-| Test | ~73 (carved deterministically) | ~73 | 0 |
+| Train | 21,712 | 621 | 21,091 |
+| Valid | 2,638 | 68 | 2,570 |
+| Test | 78 | 78 | 0 |
 
-- **Annotated (with 注释):** 578 train / 72 valid / 73 test
-- **With 译文 (modern ZH from background):** ~261 train / ~29 valid / ~28 test
+- **Annotated (with 注释):** 527 train / 59 valid / 72 test
+- **With creation background:** 309 train / 33 valid / 40 test
+- **With 译文 (modern ZH):** 0 — not currently included in prompt messages
 
 ### Cleaning Filters Applied
 
