@@ -1,9 +1,6 @@
-# datasets (large raw + processed files)
-data/
-# keep the canonical test set in the repo so Colab runs get the same eval split
-!data/
-!data/combined/
-!data/combined/test_canonical.jsonl
+# raw source datasets (large)
+data/CCPM-master/
+data/PoetMT-main/
 
 # trained model weights & checkpoints
 models/
